@@ -2,7 +2,7 @@
 task:
   id: SPEC-003
   type: chore
-  cycle: build
+  cycle: ship
   blocked: false
   priority: high
   complexity: S
@@ -42,10 +42,24 @@ cost:
       tokens_total: null
       estimated_usd: null
       notes: "Build: merged PR #2 (SPEC-002 pre-flight), created .github/workflows/ci.yml (4-OS matrix, Frame outcomes applied), .github/workflows/release.yml (stub), README.md badge, KNOWN_LIMITATIONS.md entries for Linux arm64 and macOS x86_64 larger runners. Gates: cargo fmt --check clean, cargo clippy -D warnings clean, cargo test 1/1 passed. actionlint not installed; eyeballed YAML. /cost not captured in-session."
+    - cycle: verify
+      agent: claude-sonnet-4-6
+      interface: claude-code
+      date: 2026-04-26
+      tokens_total: null
+      estimated_usd: null
+      notes: "Verify: APPROVED. CI run 24964027644 all-green (ubuntu-24.04 27s, macos-15 47s, windows-2025 72s; 1m16s wall-clock). PR #3 promoted to ready-for-review. Components gap confirmed fixed (ce8c917 added rustfmt+clippy to rust-toolchain.toml after first CI run failed). /cost not captured in-session."
+    - cycle: ship
+      agent: claude-sonnet-4-6
+      interface: claude-code
+      date: 2026-04-26
+      tokens_total: null
+      estimated_usd: null
+      notes: "Ship: folded verify bookkeeping, updated AC bullets in place to match Frame outcomes, filled in Ship reflection, captured rust-toolchain-components-checklist lesson in guidance/questions.yaml, updated PR description with commit hashes, updated stage backlog (3 shipped), marked timeline ship complete, archived spec. /cost not captured in-session."
   totals:
     tokens_total: 0
     estimated_usd: 0
-    session_count: 2
+    session_count: 4
 ---
 
 # SPEC-003: CI matrix on GitHub Actions
@@ -78,29 +92,29 @@ and windows-latest, with caching, in under 5 minutes total.
 
 ## Acceptance Criteria
 
-- [ ] `.github/workflows/ci.yml` exists with a matrix job covering:
+- [x] `.github/workflows/ci.yml` exists with a matrix job covering:
   - `macos-15` (arm64, primary)
-  - `macos-15-large` (x86_64 Intel, primary — requires larger runners; see KNOWN_LIMITATIONS.md)
   - `ubuntu-24.04` (x86_64, primary)
   - `windows-2025` (x86_64, best-effort)
-- [ ] Linux arm64 deferred — not available in standard GitHub-hosted runner tier; documented in `KNOWN_LIMITATIONS.md`
-- [ ] Each matrix entry runs in this order:
+  - macOS x86_64 (secondary tier — validated via `cargo check --target x86_64-apple-darwin` on the arm64 runner; see Frame outcome #7 and KNOWN_LIMITATIONS.md)
+- [x] Linux arm64 deferred — not available in standard GitHub-hosted runner tier; documented in `KNOWN_LIMITATIONS.md`
+- [x] Each matrix entry runs in this order:
   1. Checkout (`actions/checkout@v4`)
   2. Cache (`Swatinem/rust-cache@v2`) — rustup pre-installed on all runners and auto-detects `rust-toolchain.toml`
   3. `cargo fmt --check`
   4. `cargo clippy --all-targets -- -D warnings`
   5. `cargo test`
-- [ ] Workflow-level `permissions: { contents: read }` is set
-- [ ] Each job has `timeout-minutes: 15`
-- [ ] A `concurrency` group cancels superseded runs on the same PR/branch
-- [ ] A separate `.github/workflows/release.yml` file exists as a stub
+- [x] Workflow-level `permissions: { contents: read }` is set
+- [x] Each job has `timeout-minutes: 15`
+- [x] A `concurrency` group cancels superseded runs on the same PR/branch
+- [x] Cross-compile step `cargo check --target x86_64-apple-darwin` runs on `macos-15` runner (gated on `matrix.os == 'macos-15'`) to validate macOS x86_64 secondary tier
+- [x] A separate `.github/workflows/release.yml` file exists as a stub
       with a placeholder `workflow_dispatch:` trigger and a TODO
       comment pointing to STAGE-005 (this prevents "we forgot to add
       release CI" later)
-- [ ] A test commit on a throwaway branch produces all-green CI in
-      under 5 minutes (after cache warm-up; first run is 3–5 min on
-      each runner type)
-- [ ] README.md gains a CI status badge linking to the workflow
+- [x] A test commit on a throwaway branch produces all-green CI in
+      under 5 minutes (CI run 24964027644: 1m16s wall-clock, warm cache)
+- [x] README.md gains a CI status badge linking to the workflow
 
 ### Frame outcomes folded into Build (2026-04-26)
 
@@ -216,14 +230,14 @@ rather than hacking around it.
 
 ### Build-phase reflection
 
-1. **What was unclear that slowed you down?** macOS x86_64 runner label ambiguity — standard `macos-13`/`macos-14` labels are deprecated for Intel and replaced by `-large`/`-intel` suffixes that imply larger-runner billing. Needed to confirm from the runner-images README before picking `macos-15-large`.
-2. **Constraint or decision that should have been listed but wasn't?** The "larger runners may require a paid plan" implication for macOS x86_64 wasn't surfaced in the spec or constraints. Added to KNOWN_LIMITATIONS.md.
-3. **If you did this task again, what would you do differently?** Check runner availability and billing tier in the Frame cycle so the scope decision (include or exclude macOS x86_64 as primary) is made before Build, not flagged during it.
+1. **What was unclear that slowed you down?** Runner version freshness was a Frame-time research task; the spec's aspirational versions were 14+ months stale (`macos-14`/`macos-13`/`ubuntu-22.04`/`windows-latest`). Frame caught it and refreshed them. Would have been a Build hiccup — a wrong runner label fails silently with a confusing "runner not found" error — if Frame hadn't resolved it first.
+2. **Constraint or decision that should have been listed but wasn't?** `rust-toolchain.toml` should always include `components = ["rustfmt", "clippy"]` when paired with rustup auto-detection. SPEC-002 didn't include them; SPEC-003's CI exposed the gap on the first run. Worth surfacing as a project-wide checklist item (see `guidance/questions.yaml`: rust-toolchain-components-checklist).
+3. **If you did this task again, what would you do differently?** Run `actionlint` (or push to a throwaway branch) before claiming Build done. Would have caught the components gap one minute earlier instead of via the first CI run.
 
 ---
 
 ## Reflection (Ship)
 
-1. **What would I do differently next time?** — <not yet shipped>
-2. **Does any template, constraint, or decision need updating?** — <not yet shipped>
-3. **Is there a follow-up spec to write now?** — <not yet shipped>
+1. **What would I do differently next time?** — For any spec that lands GitHub Actions YAML, push to a throwaway branch as a Build verification step before claiming Build done. CI is the only authoritative test of a workflow file; `actionlint` catches syntax but not runner availability or component gaps. One throwaway push at the end of Build would have surfaced the rustfmt/clippy components gap immediately rather than burning a second cycle.
+2. **Does any template, constraint, or decision need updating?** — The rust-toolchain-components-checklist question is queued in `guidance/questions.yaml` (low priority). The practical answer: any spec that lands or modifies `rust-toolchain.toml` should add a one-line checklist item to verify `components = ["rustfmt", "clippy"]` is present. Worth encoding in the spec template's standard AC or in a future AGENTS.md rspeed-specific section when there's a template-revision pass.
+3. **Is there a follow-up spec to write now?** — No. SPEC-004 is the natural next spec (CLI surface), already drafted. The components lesson is captured in questions.yaml. No new spec needed.

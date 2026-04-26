@@ -13,6 +13,6 @@ Cycle prompts live in `prompts/SPEC-003-<cycle>.md`.
 
 - [x] **build** — completed 2026-04-26. Branch feat/spec-003-ci-matrix. Created ci.yml (4-OS matrix), release.yml (stub), README badge, KNOWN_LIMITATIONS entries. Gates: fmt/clippy/test all clean locally. CI behavioral verification is a Verify-cycle gate.
 
-- [ ] **verify** — pending fresh-session verify (includes observing the actual CI run go green on the pushed branch/PR)
+- [x] **verify** — completed 2026-04-26. CI run 24964027644 all-green (ubuntu-24.04 27s, macos-15 47s, windows-2025 72s; 1m16s wall-clock). PR #3 promoted to ready-for-review.
 
-- [ ] **ship** — pending verify
+- [x] **ship** — completed 2026-04-26. Verify bookkeeping folded, AC bullets updated, Ship reflection answered, rust-toolchain-components-checklist lesson captured, spec archived. PR #3 ready-for-review.
