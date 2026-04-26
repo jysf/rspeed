@@ -1,6 +1,12 @@
 [package]
 name = "rspeed"
-version = "0.1.0"
+version = "0.0.0"
 edition = "2024"
+description = "A fast Rust CLI speedtest tool. (placeholder; under active development)"
+license = "MIT"
+repository = "https://github.com/jysf/rspeed"
+readme = "README.md"
+keywords = ["speedtest", "network", "cli", "bandwidth"]
+categories = ["command-line-utilities", "network-programming"]
 
 [dependencies]
