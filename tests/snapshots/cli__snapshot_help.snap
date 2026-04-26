@@ -1,0 +1,21 @@
+---
+source: tests/cli.rs
+expression: stdout
+---
+A fast Rust CLI speedtest tool. (placeholder; under active development)
+
+Usage: rspeed [OPTIONS]
+
+Options:
+  -d, --duration <DURATION>        Test duration in seconds [default: 10]
+  -c, --connections <CONNECTIONS>  Parallel connections (1..=32) [default: 4]
+  -s, --server <SERVER>            Custom server URL. Defaults to Cloudflare when unset
+      --no-upload                  Skip the upload phase
+      --no-download                Skip the download phase
+  -f, --format <FORMAT>            Output format [default: human] [possible values: human, json, silent]
+      --color <COLOR>              Color output mode [default: auto] [possible values: auto, always, never]
+  -4, --ipv4                       Force IPv4
+  -6, --ipv6                       Force IPv6
+  -v, --verbose...                 Increase verbosity (-v, -vv, -vvv)
+  -h, --help                       Print help
+  -V, --version                    Print version

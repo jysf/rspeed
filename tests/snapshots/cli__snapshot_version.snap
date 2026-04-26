@@ -1,0 +1,5 @@
+---
+source: tests/cli.rs
+expression: stdout
+---
+rspeed 0.0.1

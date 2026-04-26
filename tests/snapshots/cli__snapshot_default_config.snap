@@ -1,0 +1,15 @@
+---
+source: tests/cli.rs
+expression: stdout
+---
+Config {
+    duration_secs: 10,
+    connections: 4,
+    server: None,
+    do_upload: true,
+    do_download: true,
+    format: Human,
+    color: Auto,
+    ip_version: Auto,
+    verbose: 0,
+}

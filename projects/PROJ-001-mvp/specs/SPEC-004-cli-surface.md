@@ -2,7 +2,8 @@
 task:
   id: SPEC-004
   type: story
-  cycle: frame
+  cycle: build
+  estimated_hours: 3-4
   blocked: false
   priority: high
   complexity: M
@@ -28,11 +29,23 @@ references:
 value_link: "delivers STAGE-001's `cargo run -- --help`-able binary surface; the public CLI contract enters review here"
 
 cost:
-  sessions: []
+  sessions:
+    - cycle: frame
+      agent: claude-opus-4-7
+      interface: claude-ai
+      tokens_total: null
+      estimated_usd: null
+      note: "Opus frame critique 2026-04-26; 10 inline edits approved"
+    - cycle: build
+      agent: claude-sonnet-4-6
+      interface: claude-code
+      tokens_total: null
+      estimated_usd: null
+      note: "Build session 2026-04-26; run /cost to fill in"
   totals:
     tokens_total: 0
     estimated_usd: 0
-    session_count: 0
+    session_count: 2
 ---
 
 # SPEC-004: CLI surface with clap derive
@@ -75,35 +88,43 @@ are committed.
 - [ ] `src/cli.rs` exists, defining a `Cli` struct with
       `#[derive(Parser)]` and these flags:
   - `-d, --duration <SECONDS>` — test duration in seconds. Default: `10`. Type: `u32`.
-  - `-c, --connections <N>` — parallel connections. Default: `4`. Type: `u8` (range-validated 1..=64).
-  - `-s, --server <URL>` — custom server URL. Optional. Type: parsed as `url::Url` (add `url` crate to deps if not already present, or use a `String` and validate at use site — pick one in design phase).
+  - `-c, --connections <N>` — parallel connections. Default: `4`. Type: `u8` (range-validated **1..=32**; Frame outcome #3).
+  - `-s, --server <URL>` — custom server URL. Optional. Type: `url::Url` (Frame outcome #1 — free URL validation at parse time; clap rejects malformed URLs with exit 2).
   - `--no-upload` — skip the upload phase.
   - `--no-download` — skip the download phase. Conflicts with `--no-upload`.
   - `-f, --format <FORMAT>` — output format. Default: `human`. Values: `human`, `json`, `silent`.
-  - `--color <WHEN>` — color output. Default: `auto`. Values: `auto`, `always`, `never`. `auto` enables only on a TTY and respects the `NO_COLOR` env var.
+  - `--color <WHEN>` — color output. Default: `auto`. Values: `auto`, `always`, `never`.
+    `auto`: enables color iff stdout is a TTY **and** `NO_COLOR` env var is unset.
+    `always`: forces color, overrides `NO_COLOR`.
+    `never`: disables color, overrides TTY detection.
+    (SPEC-004 stores the resolved enum; TTY/`NO_COLOR` resolution at runtime lands in STAGE-003 SPEC-019.)
   - `-4, --ipv4` — force IPv4. Conflicts with `-6, --ipv6`.
   - `-6, --ipv6` — force IPv6.
   - `-v, --verbose` — count flag (`-v`, `-vv`, `-vvv`) for log level.
   - (Implicit) `-h, --help` and `-V, --version` from clap.
-- [ ] An `effective_config()` method or `From<Cli> for Config` impl
-      converts the parsed `Cli` into a flat `Config` struct in
-      `src/config.rs`
-- [ ] `Config` is the type passed around the rest of the codebase;
-      `Cli` is parser-only
-- [ ] `lib::run()` now calls `Cli::parse()`, builds `Config`, prints
-      the config debug-style (e.g., one field per line), exits 0
+- [ ] `Cli` is private to the binary (`mod cli;` not `pub mod cli;`); library consumers use `Config` directly without going through clap (Frame outcome #4).
+- [ ] `From<Cli> for Config` impl converts the parsed `Cli` into a flat `Config` struct in `src/config.rs`; `Format` and `ColorWhen` re-exported via `config` module so library consumers don't import from `cli`.
+- [ ] `Config` is the type passed around the rest of the codebase; `Cli` is parser-only.
+- [ ] `lib::run()` now calls `Cli::parse()`, builds `Config`, debug-prints it, exits 0.
+- [ ] **Cargo.toml `[dependencies]`:** `anyhow = "1"`, `clap = { version = "4", features = ["derive"] }`, `url = "2"` (Frame outcome #1).
+- [ ] **Cargo.toml `[dev-dependencies]`:** `assert_cmd = "2"`, `predicates = "3"`, `insta = "1"` (no `yaml` feature — text snapshots only; Frame outcome #2).
+- [ ] **`Cargo.lock`** is committed (project policy from SPEC-002).
+- [ ] **`tests/snapshots/*.snap`** files are committed to git; `.gitignore` is not modified (Frame outcome #6).
 - [ ] Snapshot tests via `insta` for:
   - `rspeed --help` output
   - `rspeed --version` output
-  - 3–4 flag combinations (default; `--format json --duration 30`;
-    `--server https://example.com --no-upload`; `--format silent` if
-    you want a fourth) — assert resolved `Config` structure via debug
+  - 3 flag combinations (default config; `-f json -d 30`; `-s https://example.com --no-upload`) — assert resolved `Config` structure via debug snapshot.
+  - Snapshot tests pass on macOS arm64, Linux x86_64, and Windows x86_64 in CI. If Windows produces CRLF differences in `--help` output, normalize line endings in test setup (`text.replace("\r\n", "\n")` before snapshotting), not in the `.snap` files (Frame outcome #7).
 - [ ] Integration tests via `assert_cmd` covering:
-  - Successful parse + exit 0 for valid args
-  - Exit 2 for invalid args (e.g., `--connections 0`)
-  - Exit 2 for conflicting flags (`--ipv4 --ipv6`, `--no-upload --no-download`)
-- [ ] `--help` output reads cleanly to a fresh user (subjective; review
-      in Verify cycle)
+  - Exit **2** (exact code) for unknown flag (Frame outcome #5).
+  - Exit **2** (exact code) for conflicting flags (`--ipv4 --ipv6`, `--no-upload --no-download`).
+  - Exit **2** (exact code) for `--connections 0` and `--connections 33` (out-of-range).
+  - Exit **2** (exact code) for invalid server URL.
+- [ ] `--help` output reads cleanly to a fresh user (subjective; review in Verify cycle).
+
+### Binary size note
+
+Stripped release binary may exceed SPEC-002's `<1MB` target after clap and url land (expect ~800KB–1.2MB). The meaningful budget check remains SPEC-005 (`<5MB` once reqwest+rustls land). Do not gate SPEC-004 on the 1MB number (Frame outcome #9).
 
 ## Failing Tests
 
@@ -206,20 +227,35 @@ maintain.
 
 ---
 
+### Frame outcomes folded into Build (2026-04-26)
+
+All 10 outcomes from the Frame critique (Opus 4.7, 2026-04-26) are incorporated:
+
+1. **`url::Url` for `--server`** — cross-spec alignment with SPEC-005 which already commits to `Url`; picking `String` here would force a bridge later. Free URL validation; clap rejects malformed URLs with exit 2.
+2. **`insta` without `yaml` feature** — `yaml` feature drags in serde + serde_yaml; not needed for text snapshots. SPEC-004 only uses `assert_snapshot!` (text) and `assert_debug_snapshot!` (Debug trait).
+3. **Connections ceiling 64 → 32** — DEC-005's buffer pool sizing assumes ~4-8 connections; 32 matches librespeed precedent and leaves room to relax non-breakingly later.
+4. **`Cli` kept private; `Config` exposed** — `mod cli;` (private); library consumers construct `Config` directly without going through clap, so clap is not a transitive library dep.
+5. **Exit-code tests assert code 2 exactly** — not just nonzero; aligns with AGENTS.md exit code table (2 = configuration error).
+6. **AC enumerates Cargo.toml deps, Cargo.lock policy, .snap files committed** — added to Acceptance Criteria above.
+7. **Windows snapshot stability noted** — handle CRLF only if CI flags it; clap usually renders the same across platforms.
+8. **`--color` semantics tightened** — explicit flag overrides `NO_COLOR`; TTY/`NO_COLOR` resolution at runtime deferred to STAGE-003 SPEC-019.
+9. **SPEC-002 `<1MB` binary check relaxed** — real check moves to SPEC-005; expect ~800KB–1.2MB after clap+url.
+10. **Estimate adjusted 2h → 3-4h** — complexity stays M.
+
 ## Build Completion
 
-- **Branch:**
+- **Branch:** feat/spec-004-cli-surface
 - **PR:**
-- **All acceptance criteria met?** <not yet built>
-- **New decisions emitted:**
-- **Deviations from spec:**
-- **Follow-up work identified:**
+- **All acceptance criteria met?** <pending verification>
+- **New decisions emitted:** none (all covered by existing DECs)
+- **Deviations from spec:** none
+- **Follow-up work identified:** none
 
 ### Build-phase reflection
 
-1. **What was unclear that slowed you down?** —
-2. **Constraint or decision that should have been listed but wasn't?** —
-3. **If you did this task again, what would you do differently?** —
+1. **What was unclear that slowed you down?** — Nothing significant; the spec and Frame outcomes were clear.
+2. **Constraint or decision that should have been listed but wasn't?** — None identified.
+3. **If you did this task again, what would you do differently?** — No changes; the two-struct split (Cli/Config) kept things clean.
 
 ---
 
