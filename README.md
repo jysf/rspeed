@@ -1,4 +1,5 @@
-# Spec-Driven Multi-Agent Repo Template
+# rspeed\n\nA fast Rust CLI speedtest tool. Under active development.
+# Going to build using: Spec-Driven Multi-Agent Repo Template
 
 A GitHub template for running spec-driven development on an app (or apps) where the **repo is the app** and **projects are waves of work** against that app. Works whether you use Claude alone or Claude plus a dedicated implementer agent (Kilo Code, Factory Droids, AdaL, etc.).
 
