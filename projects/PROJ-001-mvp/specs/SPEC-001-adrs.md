@@ -26,7 +26,35 @@ references:
 value_link: "infrastructure enabling STAGE-001's foundational substrate — every later spec references DEC numbers"
 
 cost:
-  sessions: []
+  sessions:
+    - cycle: frame
+      agent: claude-opus-4-7
+      interface: claude-code
+      date: 2026-04-25
+      tokens_total: null
+      estimated_usd: null
+      notes: "Frame ran in same session as planning baseline integration; /cost not captured separately. Backfilled during punch-list fix per AGENTS.md §4 null-allowed convention."
+    - cycle: build
+      agent: claude-opus-4-7
+      interface: claude-code
+      date: 2026-04-25
+      tokens_total: null
+      estimated_usd: null
+      notes: "Build inlined Frame outcomes (commit b07ac6d on feat/spec-001-adrs). Same session as Frame; /cost not captured separately."
+    - cycle: verify
+      agent: claude-opus-4-7
+      interface: claude-code
+      date: 2026-04-25
+      tokens_total: null
+      estimated_usd: null
+      notes: "/cost not captured in-session; Frame and Build entries are missing (yellow per AGENTS.md §4)."
+    - cycle: verify-punchlist-fix
+      agent: claude-opus-4-7
+      interface: claude-code
+      date: 2026-04-25
+      tokens_total: null
+      estimated_usd: null
+      notes: "Punch-list resolution: DEC-004 latency_method→latency.method; backfilled cost.sessions; updated timeline. Awaiting re-verify."
   totals:
     tokens_total: 0
     estimated_usd: 0
