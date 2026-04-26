@@ -44,7 +44,8 @@ local HTTP server matching the Generic backend protocol from DEC-003.
 Stage 2 specs will build on this; without it Stage 2 balloons in scope
 and fragility (every Stage 2 spec would otherwise wire its own mock).
 
-`axum` is already a dev-dep (added in SPEC-002). This spec wires it
+This spec adds `axum` as a dev-dep (it was *not* landed in SPEC-002
+under School B; SPEC-006 is the first-consuming spec) and wires it
 into a `MockServer` fixture that future tests can use as one line.
 
 ## Goal
@@ -62,7 +63,7 @@ name.
 - **Files to read:**
   - `DEC-003` (Generic backend protocol)
   - `src/backend/generic.rs` from SPEC-005
-  - `Cargo.toml` (confirm axum is already a dev-dep)
+  - `Cargo.toml` (this spec adds axum as a dev-dep)
 
 ## Outputs
 
@@ -73,6 +74,9 @@ name.
 
 ## Acceptance Criteria
 
+- [ ] `Cargo.toml` adds `axum` to `[dev-dependencies]` (deferred from
+      SPEC-002 to its first-consuming spec under School B). Versions
+      aspirational — verify current major line at Build time.
 - [ ] `tests/common/mod.rs` exposes `MockServer` with:
   - `MockServer::start() -> MockServer` (async, awaits readiness)
   - `MockServer::base_url() -> Url`
@@ -116,8 +120,9 @@ name.
 
 - `test-before-implementation` — the smoke tests above are written
   first.
-- `no-new-top-level-deps-without-decision` — axum is already a dev-dep
-  per SPEC-002. No new deps expected.
+- `no-new-top-level-deps-without-decision` — this spec adds `axum` as
+  a dev-dep (justified inline by the test-harness need; SPEC-002 under
+  School B did not land it). No further new deps expected.
 
 ### Prior related work
 
@@ -144,7 +149,8 @@ mockito and wiremock are designed for asserting HTTP request shapes —
 useful when you're testing client behavior. We need something
 different: a server that streams large response bodies and consumes
 large request bodies realistically. axum's streaming support is good
-and the dependency overhead is acceptable (it's already a dev-dep).
+and the dependency overhead is acceptable (this spec adds it as a
+dev-dep — SPEC-002 deferred it under School B).
 
 ### Server construction
 

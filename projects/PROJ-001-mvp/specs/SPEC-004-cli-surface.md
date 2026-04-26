@@ -117,6 +117,11 @@ are committed.
   - `"rejects connections out of range"` — `rspeed -c 0` exits 2
   - `"rejects ipv4 ipv6 conflict"` — `rspeed -4 -6` exits 2
   - `"rejects no-upload no-download conflict"` — `rspeed --no-upload --no-download` exits 2
+  - `"unknown flag exits nonzero"` — `rspeed --not-a-real-flag` exits
+    nonzero with clap's "unrecognized argument" stderr (test deferred
+    here from SPEC-002 under School B — clap doesn't exist until this
+    spec, so the unknown-flag rejection contract first becomes
+    testable in this spec)
 
 ## Implementation Context
 

@@ -105,6 +105,23 @@ building `Config` and prints the chosen backend's name.
       `DEC-003` (preferred for in-place evolution) or write
       `decisions/DEC-009-backend-trait-shape.md` (preferred if shape
       diverges meaningfully from DEC-003's sketch). Pick one in design.
+- [ ] `Cargo.toml` adds the runtime deps this spec first consumes
+      (under School B, deferred from SPEC-002 to their first-consuming
+      spec):
+  ```toml
+  [dependencies]
+  tokio       = { version = "1", features = [...DEC-001 list...] }
+  reqwest     = { version = "0.13", default-features = false, features = ["rustls", "stream", "http2"] }  # per DEC-002 inline-refined in SPEC-002
+  bytes       = "1"
+  futures     = "0.3"      # for BoxStream
+  thiserror   = "2"        # for BackendError
+  async-trait = "0.1"      # see "async_trait vs AFIT" below
+  ```
+  Versions are aspirational — verify current major lines at Build
+  time. Each addition is justified by the trait sketch below; the
+  `no-new-top-level-deps-without-decision` constraint is satisfied
+  by DEC-001 (tokio), DEC-002 (reqwest), and this spec body for the
+  rest.
 
 ## Failing Tests
 
