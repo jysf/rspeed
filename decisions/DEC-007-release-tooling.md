@@ -73,6 +73,11 @@ matrix workflow. The deliverables stay the same.
 
 - Release process is `git tag v0.1.0 && git push --tags`. No manual
   steps.
+- `cargo-binstall` compatibility comes essentially for free —
+  cargo-dist generates the binstall metadata in `Cargo.toml` so users
+  can `cargo binstall rspeed` and skip compilation. This roughly
+  doubles install convenience for the Rust crowd at zero engineering
+  cost. STAGE-005's release spec verifies the metadata is in place.
 - A first-time setup cost of half a day in Stage 5 (cargo-dist init,
   Homebrew tap repo creation, crates.io token).
 - We're somewhat coupled to cargo-dist's conventions; mitigation is

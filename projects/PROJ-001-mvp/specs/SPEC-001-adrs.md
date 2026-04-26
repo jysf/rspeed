@@ -101,6 +101,37 @@ to them rather than re-arguing the choice in PR descriptions.
 - [ ] If any decision lands at confidence < 0.7, it gets a
       corresponding entry in `guidance/questions.yaml`
 
+### Frame outcomes folded into Build (2026-04-25)
+
+Frame critique surfaced refinements that land in DECs / specs as part
+of this spec's Build cycle (rather than as superseding DECs):
+
+- DEC-001: `sync` feature rationale broadened to mention `oneshot`
+- DEC-002: `gzip` feature dropped (throughput needs on-wire bytes);
+  HTTP proxy auto-detection disabled by default
+- DEC-003: trait sketch uses explicit `Result<_, BackendError>`
+- DEC-005: "ample headroom" tempered to "comfortable headroom" with
+  RSS budget arithmetic
+- DEC-006: `ip_version` field added to `TestResult`; `connections`
+  split into `connections_configured` + `connections_active`;
+  forward-compat note for field additions; throughput warm-up window
+  documented
+- DEC-007: `cargo-binstall` compatibility called out as zero-cost
+  win, queued for STAGE-005 verification
+- SPEC-002: gzip removed from reqwest features
+- SPEC-004: `--color <auto|always|never>` flag added (with `NO_COLOR`
+  env var respected when `auto`)
+- SPEC-005: shared client config (`no_proxy()`, `https_only(true)`)
+  + 10GB response size cap on Generic backend reads
+- STAGE-003 stage doc: notes for SPEC-014 (latency-phase progress)
+  and SPEC-019 (NO_COLOR env var)
+- STAGE-005 stage doc: shell completions + manpage as stretch
+- PROJ-001 brief: `PROJ-002-bufferbloat` added as Wave 2 candidate
+- `guidance/questions.yaml`: cargo-dist-freshness question raised for
+  STAGE-005
+
+Build cycle applies these inline; no DECs are superseded.
+
 ## Failing Tests
 
 This spec ships markdown only. No tests to write.

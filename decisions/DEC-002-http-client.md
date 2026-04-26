@@ -61,12 +61,21 @@ reqwest = { version = "0.12", default-features = false, features = [
     "rustls-tls",       # rustls instead of native-tls (no OpenSSL dep)
     "stream",           # body streaming for download throughput measurement
     "http2",            # HTTP/2 support
-    "gzip",             # may be useful for some test endpoints
 ] }
 ```
 
 Notably absent: `default-tls`, `native-tls`, `cookies`, `json` (we'll
-serialize/deserialize directly with `serde_json`).
+serialize/deserialize directly with `serde_json`), and `gzip`. Gzip
+is deliberately omitted: throughput is measured by counting bytes as
+they arrive, and content-encoded responses would inflate the reported
+Mbps relative to actual on-wire transfer. All requests should send
+`Accept-Encoding: identity` so the server doesn't compress.
+
+Additionally, we **disable HTTP proxy auto-detection** by default
+(`reqwest::Client::builder().no_proxy()`). reqwest normally honors
+`HTTP_PROXY` / `HTTPS_PROXY` env vars, but for a speed test that
+yields the proxy's throughput, not the link's, which is almost never
+what the user wants. A future `--use-proxy` flag can opt back in.
 
 ## Consequences
 

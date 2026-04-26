@@ -54,15 +54,15 @@ pub trait Backend: Send + Sync {
 
     async fn latency_probe(
         &self, samples: usize,
-    ) -> Result<Vec<Duration>>;
+    ) -> Result<Vec<Duration>, BackendError>;
 
     async fn download(
         &self, opts: &DownloadOpts,
-    ) -> Result<DownloadStream>;
+    ) -> Result<DownloadStream, BackendError>;
 
     async fn upload(
         &self, opts: &UploadOpts,
-    ) -> Result<UploadResult>;
+    ) -> Result<UploadResult, BackendError>;
 }
 ```
 

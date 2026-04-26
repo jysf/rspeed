@@ -58,7 +58,7 @@ tokio = { version = "1", default-features = false, features = [
     "time",             # sleep, timeout, interval — needed for test duration
     "macros",           # #[tokio::main] and tokio::select!
     "io-util",          # AsyncReadExt / AsyncWriteExt traits
-    "sync",             # mpsc/watch/broadcast channels for snapshot fan-out
+    "sync",             # watch/broadcast for snapshot fan-out (DEC-006), oneshot for graceful test-server shutdown (SPEC-006)
 ] }
 ```
 

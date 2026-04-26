@@ -93,8 +93,8 @@ specs add integration tests against the lib API.
                   "io-util", "sync"
               ] }
   reqwest  = { version = "0.12", default-features = false, features = [
-                  "rustls-tls", "stream", "http2", "gzip"
-              ] }
+                  "rustls-tls", "stream", "http2"
+              ] }    # gzip intentionally omitted per DEC-002
   serde       = { version = "1", features = ["derive"] }
   serde_json  = "1"
   anyhow      = "1"
