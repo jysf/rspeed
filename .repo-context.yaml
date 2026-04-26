@@ -1,0 +1,100 @@
+# .repo-context.yaml
+# Describes the APP (the repo itself). Persists across all projects run
+# against this app. Forward-compatible with ContextCore's ProjectContext CRD.
+#
+# Projects (waves of work against this app) live in ./projects/<id>/ and
+# each has its own brief.md.
+
+apiVersion: contextcore.io/v2
+kind: RepoContext
+
+metadata:
+  repo:
+    id: rspeed
+    name: "rspeed"
+    purpose: "A fast Rust CLI speedtest tool that starts in under 50ms."
+    url: "github.com/jysf/rspeed"
+
+  business:
+    criticality: medium
+    owner: jysf
+    contacts:
+      - "jyashinsky@gmail.com"
+
+spec:
+  stack:
+    language: rust
+    edition: "2024"
+    runtime: "tokio (minimal feature set — see DEC-001)"
+    http: "reqwest with rustls-tls (no system OpenSSL — see DEC-002)"
+    cli: "clap derive"
+    tls: "rustls (vendored, no native-tls)"
+    license: "MIT OR Apache-2.0"
+
+  # Standard paths; do not change without also updating AGENTS.md.
+  paths:
+    agents_md: ./AGENTS.md
+    docs: ./docs
+    guidance: ./guidance
+    decisions: ./decisions
+    projects: ./projects
+    templates: ./projects/_templates
+
+  observability:
+    sampling: null
+    alert_routing: null
+    runbook_base: null
+
+# rspeed-specific: project-level architectural facts that persist across
+# all waves of work. These live outside the ContextCore-aligned blocks
+# above so future tooling can ignore them, but agents should read them.
+
+description: |
+  rspeed is a command-line internet speed test tool written in Rust.
+  It measures download throughput, upload throughput, and HTTP round-trip
+  latency against a configurable backend (Cloudflare by default, or any
+  user-supplied URL serving the documented HTTP protocol).
+
+  Design priorities, in order:
+    1. Fast startup (<50ms cold-start to first network byte)
+    2. Low resource use (<20MB peak RSS)
+    3. Clean output for both humans and monitoring scripts (color, JSON, silent)
+    4. Cross-platform with macOS as the primary development target
+    5. No system-wide dependencies — single static binary
+
+  Explicit non-goals (at the repo level, across all projects):
+    - We do not implement or reverse-engineer the Ookla/speedtest.net protocol
+    - We do not provide a built-in server discovery mechanism
+    - We do not ship a server binary (users bring their own URL or use Cloudflare)
+
+architecture:
+  output_renderers: [human, json, silent]
+  backends: [cloudflare, generic_http]
+
+performance_budgets:
+  cold_start_ms: 50         # CLI parse → first socket connect
+  peak_rss_mb: 20           # measured during a full test
+  throughput_target_gbps: 1 # on wired link, modest hardware
+
+target_platforms:
+  - { os: macos,   arch: arm64,    tier: primary }
+  - { os: macos,   arch: x86_64,   tier: primary }
+  - { os: linux,   arch: x86_64,   tier: primary }
+  - { os: linux,   arch: arm64,    tier: secondary }
+  - { os: windows, arch: x86_64,   tier: best_effort }
+
+distribution:
+  - github_releases  # static binaries for all tier-primary/secondary targets
+  - homebrew_tap     # homebrew-rspeed tap, formula points at GH release tarballs
+  - crates_io        # `cargo install rspeed`
+
+conventions:
+  formatting: cargo fmt (default rustfmt config)
+  linting: cargo clippy --all-targets -- -D warnings
+  testing: cargo test (unit + integration); criterion for benchmarks
+  error_handling:
+    cli_layer: anyhow
+    library_layer: thiserror (a public lib surface is exposed via src/lib.rs)
+  panics: forbidden in library code; allowed in main.rs only for unrecoverable startup failures
+
+current_project: PROJ-001-mvp
