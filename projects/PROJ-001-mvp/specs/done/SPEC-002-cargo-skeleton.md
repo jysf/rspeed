@@ -2,7 +2,7 @@
 task:
   id: SPEC-002
   type: chore
-  cycle: build
+  cycle: ship
   blocked: false
   priority: high
   complexity: M
@@ -44,10 +44,24 @@ cost:
       tokens_total: null
       estimated_usd: null
       notes: "Build inlined Frame outcomes; landed Cargo skeleton (rust-toolchain.toml, Cargo.toml School B deps, src/lib.rs, src/main.rs, tests/version.rs, LICENSE-MIT, LICENSE-APACHE rename, README placeholder); DEC-002 inline refinement applied. Gates: fmt/clippy clean, debug+release build, 1 test passing, release binary 358K stripped. /cost not captured in-session."
+    - cycle: verify
+      agent: claude-opus-4-7
+      interface: claude-code
+      date: 2026-04-26
+      tokens_total: null
+      estimated_usd: null
+      notes: "Fresh-session verify: APPROVED. All AC met, Frame outcomes faithfully applied (School B deps, MSRV 1.91.0, version 0.0.1, DEC-002 0.13/rustls/aws-lc-rs at confidence 0.85, <1MB AC, unsafe_code forbid, soft .gitignore AC, --version AC clarified). Gates re-run clean (fmt, clippy -D warnings, debug+release build, cargo test 1 passed, release binary 358K, runs and prints 'rspeed v0.0.1'). LICENSE-APACHE git history preserved via rename. Constraint sweep clean — School B rationale covers the warning-severity new-top-level-deps constraint adequately. Three downstream drift items flagged (not SPEC-002 blockers): SPEC-006 has stale 'axum is already a dev-dep' references that contradict School B; SPEC-004 missing the deferred unknown-flag test in its Failing Tests; SPEC-005 trait sketch references reqwest/bytes/futures/thiserror/async-trait without enumerating them in AC. /cost not captured in-session."
+    - cycle: ship
+      agent: claude-opus-4-7
+      interface: claude-code
+      date: 2026-04-26
+      tokens_total: null
+      estimated_usd: null
+      notes: "Ship: backfilled Build Completion + Build-phase reflection, appended Ship reflection, computed cost.totals, folded the three downstream drift items (SPEC-004 unknown-flag test, SPEC-005 Cargo.toml deps enumerated in AC, SPEC-006 'axum dev-dep' refs rewritten) into this PR since SPEC-002's School B Frame outcome caused them. Updated stage backlog (1→2 shipped, 5→4 active), marked timeline ship complete, archived spec to specs/done/. /cost not captured in-session."
   totals:
     tokens_total: 0
     estimated_usd: 0
-    session_count: 0
+    session_count: 4
 ---
 
 # SPEC-002: Cargo project skeleton
@@ -280,25 +294,23 @@ ships only the version-print test.
 
 ## Build Completion
 
-*Filled in at end of build.*
-
-- **Branch:**
-- **PR:**
-- **All acceptance criteria met?** <not yet built>
-- **New decisions emitted:**
-- **Deviations from spec:**
-- **Follow-up work identified:**
+- **Branch:** `feat/spec-002-cargo-skeleton`
+- **PR:** opened during Ship (link added in PR description)
+- **All acceptance criteria met?** Yes — fmt clean, clippy `-D warnings` clean, debug + release builds, `cargo test` 1 passed, release binary 358K stripped (well under the <1MB AC), `./target/release/rspeed` prints `rspeed v0.0.1` and exits 0.
+- **New decisions emitted:** None. DEC-002 was *inline-refined* (reqwest 0.12 → 0.13, feature `rustls-tls` → `rustls`, aws-lc-rs provider note, confidence 0.90 → 0.85), not superseded — the underlying decision ("reqwest with rustls TLS") is unchanged.
+- **Deviations from spec:** The `unknown_flag_exits_nonzero` test that the original spec hinted at was deferred to SPEC-004 (where clap actually lands under School B). The `--version` AC was clarified: without clap, the binary unconditionally prints its version line; literal `--version` flag handling is SPEC-004's responsibility.
+- **Follow-up work identified:** Verify surfaced three downstream cross-spec drift items caused by SPEC-002's School B Frame outcome — SPEC-004 missing the deferred unknown-flag test, SPEC-005 not enumerating its Cargo.toml additions, SPEC-006 still saying "axum is already a dev-dep (added in SPEC-002)". These are SPEC-002's responsibility (its Frame decision caused the cascade) and are folded into the Ship PR rather than left as separate cleanup specs.
 
 ### Build-phase reflection
 
-1. **What was unclear that slowed you down?** —
-2. **Constraint or decision that should have been listed but wasn't?** —
-3. **If you did this task again, what would you do differently?** —
+1. **What was unclear in the spec that slowed you down?** — School A (land everything now) vs School B (just-in-time) was the key Frame decision; once locked, the rest was mechanical. The unknown-flag rejection test required a small judgment call — clap was deferred under School B, so the test had no parser to exercise; we dropped it from SPEC-002 and documented the move to SPEC-004.
+2. **Was there a constraint or decision that should have been listed but wasn't?** — A cross-spec consistency check. SPEC-002's School B decision cascaded to SPEC-004/005/006 spec bodies (stale "axum is already a dev-dep" refs, missing tests, unenumerated Cargo.toml additions) and was caught at Verify, not at Build. A Build-phase pass through downstream spec bodies whenever a spec changes a scope-level decision would catch this earlier.
+3. **If you did this task again, what would you do differently?** — Sweep downstream spec bodies for staleness at end of Build, not at Verify. The same discipline that caught DEC-004/006 cross-DEC drift on SPEC-001's verify caught three SPEC-004/005/006 drift items here — running it one cycle earlier saves a Verify→Build punch-list round-trip when the drift is more substantial.
 
 ---
 
 ## Reflection (Ship)
 
-1. **What would I do differently next time?** — <not yet shipped>
-2. **Does any template, constraint, or decision need updating?** — <not yet shipped>
-3. **Is there a follow-up spec to write now?** — <not yet shipped>
+1. **What would I do differently next time?** — Do the cross-spec consistency sweep at end of Build, not Verify. The same discipline that caught the DEC-004/DEC-006 JSON-path drift at SPEC-001's verify just caught three downstream spec-body drifts (SPEC-004/005/006) here. The sweep is cheap; running it during Build means downstream specs are clean by the time Verify opens them.
+2. **Does any template, constraint, or decision need updating?** — Yes, one small template addition: the spec template's Build Completion section should grow a "downstream spec impact check" line item — *if this spec changed a scope-level decision (dep landing, MSRV, naming convention), have you swept the affected downstream spec bodies?* The existing "cross-DEC consistency check" follow-up from SPEC-001 ship reflection covers shared-field drift across DECs; this addition covers shared-decision drift across specs. Both are instances of the same root habit and could fold into one "consistency sweep" checklist item.
+3. **Is there a follow-up spec to write now?** — No. The SPEC-004/005/006 drift items were fixed inline as part of this PR (they're SPEC-002's responsibility because School B was SPEC-002's call). SPEC-003 (CI matrix) is the natural next spec; it can run in parallel with SPEC-004 onwards per the stage's dependency order. The template-addition observation in #2 above is small enough to capture in `guidance/questions.yaml` or fold into the next stage-template tweak rather than its own spec.
