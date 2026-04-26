@@ -34,6 +34,22 @@ questions:
       Linux x86_64, Windows x86_64)? If "no" to either, fall back to
       a hand-rolled matrix workflow per the DEC's own escape hatch.
 
+  - id: rust-toolchain-components-checklist
+    question: "Should the spec template or AGENTS.md include a 'rust-toolchain.toml must declare components = [\"rustfmt\", \"clippy\"]' check for any spec that lands or modifies the toolchain pin?"
+    priority: low
+    status: open
+    raised_by: claude-sonnet-4-6
+    raised_at: 2026-04-26
+    assigned_to: null
+    notes: |
+      SPEC-002 set rust-toolchain.toml without components; SPEC-003's CI
+      exposed the gap (first run failed with "rustfmt/clippy not found"
+      because rustup auto-installed the toolchain channel without
+      components). Adding components is one-line and trivial. Worth a
+      one-line checklist item in either the spec template's standard
+      acceptance criteria or AGENTS.md's rspeed-specific section. Defer
+      until the next toolchain-touching spec or a template revision pass.
+
   - id: throughput-warmup-duration
     question: "Is 2 seconds the right throughput warm-up window, or should it be auto-detected from CWND saturation?"
     priority: low

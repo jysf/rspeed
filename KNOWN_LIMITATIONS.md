@@ -30,13 +30,34 @@ normal terminal but breaks in CI, piped shells, or any non-TTY
 context. The intended use (one human clicks "Use this template" and
 runs `just init` once) doesn't hit this, so it's left as-is.
 
-## No cross-platform CI
+## No cross-platform CI (template-level)
 
-`just test` runs locally on whoever runs it. There's no GitHub Actions
-workflow that exercises both macOS and Linux. The scripts have
-`uname = Darwin` branches for `stat` and for `sed -i`, and those are
-tested under `just test` on whichever OS runs the test — but drift
-between the two branches is possible.
+`just test` runs locally on whoever runs it. The justfile scripts have
+`uname = Darwin` branches for `stat` and `sed -i`, tested under
+`just test` on whichever OS runs it — drift between branches is
+possible. This is a template-level limitation separate from the
+application CI (see below).
+
+## CI: Linux arm64 runner not available in standard tier
+
+`.repo-context.yaml` lists Linux arm64 as a secondary-tier target.
+As of 2026-04-26, GitHub-hosted standard runners do not include an
+arm64 Linux image in their available-images table. The SPEC-003 CI
+matrix covers macOS arm64, macOS x86_64, Ubuntu 24.04 (x86_64), and
+Windows 2025. Linux arm64 coverage is deferred until GitHub makes
+arm64 Linux runners available on the free tier for public repos, or
+until we add a self-hosted runner. Tracked in SPEC-003.
+
+## CI: macOS x86_64 coverage
+
+GitHub-hosted Intel macOS runners (`macos-15-large` and similar) are
+paid runners even for public repos (~$0.16/min). For the rspeed MVP we
+accept the cost trade-off: macOS x86_64 is reclassified from "primary"
+to "secondary" tier (see `AGENTS.md` and `.repo-context.yaml`). CI
+compile-validates the target via `cargo check --target x86_64-apple-darwin`
+on the free arm64 runner. Test execution on Intel macOS depends on user
+bug reports. Revisit if (a) Intel-specific bugs are reported, or (b) a
+free Intel macOS runner becomes available.
 
 ## Scripts assume 3-digit zero-padded IDs
 
