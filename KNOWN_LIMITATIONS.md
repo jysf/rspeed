@@ -30,13 +30,32 @@ normal terminal but breaks in CI, piped shells, or any non-TTY
 context. The intended use (one human clicks "Use this template" and
 runs `just init` once) doesn't hit this, so it's left as-is.
 
-## No cross-platform CI
+## No cross-platform CI (template-level)
 
-`just test` runs locally on whoever runs it. There's no GitHub Actions
-workflow that exercises both macOS and Linux. The scripts have
-`uname = Darwin` branches for `stat` and for `sed -i`, and those are
-tested under `just test` on whichever OS runs the test — but drift
-between the two branches is possible.
+`just test` runs locally on whoever runs it. The justfile scripts have
+`uname = Darwin` branches for `stat` and `sed -i`, tested under
+`just test` on whichever OS runs it — drift between branches is
+possible. This is a template-level limitation separate from the
+application CI (see below).
+
+## CI: Linux arm64 runner not available in standard tier
+
+`.repo-context.yaml` lists Linux arm64 as a secondary-tier target.
+As of 2026-04-26, GitHub-hosted standard runners do not include an
+arm64 Linux image in their available-images table. The SPEC-003 CI
+matrix covers macOS arm64, macOS x86_64, Ubuntu 24.04 (x86_64), and
+Windows 2025. Linux arm64 coverage is deferred until GitHub makes
+arm64 Linux runners available on the free tier for public repos, or
+until we add a self-hosted runner. Tracked in SPEC-003.
+
+## CI: macOS x86_64 requires larger runners
+
+The `macos-15-large` runner (Intel x86_64) used in the CI matrix is
+a GitHub "larger runner". For public repositories, larger runners may
+require a GitHub Teams or Enterprise plan, or consume free minutes at
+a higher rate. If CI costs become a concern, drop `macos-15-large`
+from PR runs (keep it on push-to-main only) or downgrade to
+best-effort tier in `.repo-context.yaml`. Flagged in SPEC-003 Build.
 
 ## Scripts assume 3-digit zero-padded IDs
 

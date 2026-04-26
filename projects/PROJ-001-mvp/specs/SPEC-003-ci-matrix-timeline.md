@@ -7,12 +7,12 @@ Cycle prompts live in `prompts/SPEC-003-<cycle>.md`.
 
 ## Instructions
 
-- [ ] **frame** — prompt: pending (waiting on SPEC-002 to ship)
+- [x] **frame** — completed 2026-04-26. Written critique; 6 resolutions (runner versions refreshed, dtolnay/rust-toolchain dropped, cargo build --release dropped, timeout-minutes: 15, permissions: contents: read, Linux arm64 deferred) folded into Build per SPEC-001/SPEC-002 precedent. Prompt was inlined into the Build prompt by the architect.
 
-- [ ] **design** — prompt: pending (waiting on frame)
+- [x] **design** — n/a. Frame outcomes serve as design; this is a configuration-only spec with no code.
 
-- [ ] **build** — prompt: pending (waiting on design)
+- [x] **build** — completed 2026-04-26. Branch feat/spec-003-ci-matrix. Created ci.yml (4-OS matrix), release.yml (stub), README badge, KNOWN_LIMITATIONS entries. Gates: fmt/clippy/test all clean locally. CI behavioral verification is a Verify-cycle gate.
 
-- [ ] **verify** — prompt: pending (waiting on build)
+- [ ] **verify** — pending fresh-session verify (includes observing the actual CI run go green on the pushed branch/PR)
 
-- [ ] **ship** — prompt: pending (waiting on verify)
+- [ ] **ship** — pending verify

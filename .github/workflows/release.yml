@@ -1,0 +1,19 @@
+# Placeholder workflow — populated in STAGE-005 SPEC-027 (cargo-dist setup).
+# See decisions/DEC-007-release-tooling.md for the planned release pipeline.
+
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  placeholder:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: |
+          echo "Release workflow placeholder."
+          echo "Populated in STAGE-005 SPEC-027 (cargo-dist setup)."
+          echo "See decisions/DEC-007-release-tooling.md."
