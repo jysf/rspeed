@@ -182,6 +182,11 @@ docs, and unforeseen issues — fits the 2-week box.
 ### Enables
 
 - PROJ-002-monitor (potential v2): monitor mode with TUI dashboard
+- PROJ-002-bufferbloat (potential v2; could fold into monitor):
+  measure latency *during* download/upload to surface queueing delay
+  introduced by saturating the link. This is the #1 thing modern
+  speedtest users care about that classic speedtests miss; strong
+  differentiator if v0.2 ships it.
 - PROJ-003-loss (potential v2): UDP-based packet-loss probe
 - PROJ-004-icmp (potential v2): unprivileged ICMP
 - PROJ-005-server (potential v2): a minimal `rspeed-server` binary

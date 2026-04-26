@@ -79,6 +79,21 @@ Roughly 10 hours; this is mostly mechanical setup.
 - Docker images or other distribution channels
 - Long-term release-cadence policy
 
+### Stretch items (drop if running long)
+
+- **Shell completions** (`clap_complete` generates bash/zsh/fish/PowerShell
+  scripts from the existing CLI definitions). Homebrew formula installs
+  them automatically. Half-day of work; high user-perceived polish.
+- **Manpage** (`clap_mangen` generates from the same CLI definitions).
+  Ships in the Homebrew formula and the GitHub Release tarballs. Half-day.
+
+### Notes for specs not yet written (carried forward from SPEC-001 Frame)
+
+- **SPEC-027 (cargo-dist setup):** verify `cargo-binstall` metadata is
+  generated automatically (per DEC-007); confirm the cargo-dist
+  freshness question in `guidance/questions.yaml` before locking the
+  release pipeline.
+
 ## Spec Backlog
 
 - [ ] (not yet written) — cargo-dist setup and release.yml

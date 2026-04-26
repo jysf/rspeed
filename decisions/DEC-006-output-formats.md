@@ -59,7 +59,8 @@ pub struct TestResult {
     pub started_at: DateTime<Utc>,
     pub backend: String,            // "cloudflare" | "generic"
     pub server_url: String,
-    pub duration_secs: f64,         // actual, not configured
+    pub ip_version: String,         // "ipv4" | "ipv6" — which family was actually used
+    pub duration_secs: f64,         // actual measurement window, excluding warm-up
 
     pub latency: LatencyResult,
     pub download: Option<ThroughputResult>,
@@ -76,11 +77,12 @@ pub struct LatencyResult {
 }
 
 pub struct ThroughputResult {
-    pub mbps: f64,                  // mean over the measurement window
+    pub mbps: f64,                  // mean over the measurement window (post-warm-up)
     pub mbps_p50: f64,              // sliding-window median
     pub mbps_p95: f64,              // sliding-window p95
-    pub bytes: u64,                 // total transferred
-    pub connections: usize,
+    pub bytes: u64,                 // total transferred during the measurement window
+    pub connections_configured: usize,  // count requested via --connections
+    pub connections_active: usize,      // count still alive at end of test
 }
 ```
 
@@ -108,10 +110,32 @@ Renderers live in `src/output/`:
 - `output/json.rs` — `serde_json::to_writer_pretty(stdout, &result)`
 - `output/silent.rs` — does nothing; exit code conveys outcome
 
+## Throughput warm-up window
+
+TCP slow-start ramps the congestion window over the first few seconds
+of a connection. If we report the mean throughput over the full test
+duration, the warm-up undershoot drags the number down — a 1 Gbps
+link reports ~600–800 Mbps for a 10s test. This is a known speedtest
+pitfall.
+
+The orchestrator therefore observes a **2-second warm-up window** at
+the start of each throughput phase: bytes still flow and progress is
+visible to the renderer, but the measurement window for `mbps`,
+`mbps_p50`, `mbps_p95`, and `bytes` excludes those bytes. The JSON
+output's `duration_secs` reflects the actual measurement window, not
+the configured `--duration`. This is the dominant difference between
+"fits in the family of 'roughly correct' speedtest tools" and "users
+trust the number." STAGE-002's `MetricsAccumulator` owns this; the
+exact warm-up duration may be tuned in STAGE-004 perf work.
+
 ## Consequences
 
 - The JSON schema is exactly the `TestResult` Serialize output. This
   is the public contract; any field rename is a breaking change.
+- *Field additions* are non-breaking: monitoring scripts using `jq`
+  with named keys are forward-compatible by default. Adding a new
+  optional field in a minor release is acceptable; renaming or
+  removing requires a major version bump.
 - We commit to documenting the JSON schema in the README and
   bumping major version on schema breaks.
 - Renderers can never display data that's not in `TestResult` /

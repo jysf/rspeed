@@ -66,8 +66,9 @@ Default N = 10 samples. Configurable via `--latency-samples`.
 **TCP-connect fallback** is used when HTTP RTT fails (e.g. server
 returns 404 on the ping path, or HTTP layer error for any reason).
 It opens N TCP connections in series, measures connect time, closes.
-This is a degraded mode and is reflected in the JSON output as
-`"latency_method": "tcp_connect"`.
+This is a degraded mode and is reflected in the JSON output at
+`latency.method` (e.g., `"latency": {"method": "tcp_connect", ...}`)
+— see DEC-006 for the canonical schema shape.
 
 ICMP is **out of scope for MVP**. A future DEC may add it as an
 opt-in `--icmp` flag with platform-specific handling.
@@ -81,7 +82,8 @@ opt-in `--icmp` flag with platform-specific handling.
 - Latency is slightly inflated relative to ICMP because of HTTP and
   TLS overhead, but consistent across runs and across servers (good
   for relative comparison).
-- The JSON schema includes `latency_method` so monitoring scripts can
-  detect when fallback was used.
+- The JSON schema includes `latency.method` (nested under
+  `TestResult.latency` per DEC-006's `LatencyResult`) so monitoring
+  scripts can detect when fallback was used.
 - Future ICMP work is a clean addition: a third method, opt-in flag,
   no breakage to existing JSON consumers.

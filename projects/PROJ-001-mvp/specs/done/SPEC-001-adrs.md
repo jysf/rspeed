@@ -2,7 +2,7 @@
 task:
   id: SPEC-001
   type: chore
-  cycle: frame
+  cycle: ship
   blocked: false
   priority: high
   complexity: S
@@ -26,11 +26,53 @@ references:
 value_link: "infrastructure enabling STAGE-001's foundational substrate — every later spec references DEC numbers"
 
 cost:
-  sessions: []
+  sessions:
+    - cycle: frame
+      agent: claude-opus-4-7
+      interface: claude-code
+      date: 2026-04-25
+      tokens_total: null
+      estimated_usd: null
+      notes: "Frame ran in same session as planning baseline integration; /cost not captured separately. Backfilled during punch-list fix per AGENTS.md §4 null-allowed convention."
+    - cycle: build
+      agent: claude-opus-4-7
+      interface: claude-code
+      date: 2026-04-25
+      tokens_total: null
+      estimated_usd: null
+      notes: "Build inlined Frame outcomes (commit b07ac6d on feat/spec-001-adrs). Same session as Frame; /cost not captured separately."
+    - cycle: verify
+      agent: claude-opus-4-7
+      interface: claude-code
+      date: 2026-04-25
+      tokens_total: null
+      estimated_usd: null
+      notes: "/cost not captured in-session; Frame and Build entries are missing (yellow per AGENTS.md §4)."
+    - cycle: verify-punchlist-fix
+      agent: claude-opus-4-7
+      interface: claude-code
+      date: 2026-04-25
+      tokens_total: null
+      estimated_usd: null
+      notes: "Punch-list resolution: DEC-004 latency_method→latency.method; backfilled cost.sessions; updated timeline. Awaiting re-verify."
+    - cycle: verify
+      agent: claude-opus-4-7
+      interface: claude-code
+      date: 2026-04-25
+      tokens_total: null
+      estimated_usd: null
+      notes: "Re-verify of punch-list fix (commit 3cc4e01). Confirmed DEC-004 latency.method nesting + DEC-006 cross-ref, four-entry cost backfill, and timeline status. ✅ APPROVED. /cost not captured in-session."
+    - cycle: ship
+      agent: claude-opus-4-7
+      interface: claude-code
+      date: 2026-04-25
+      tokens_total: null
+      estimated_usd: null
+      notes: "Ship: backfilled Build reflection, appended Ship reflection, computed cost.totals, updated stage backlog + timeline, archived spec to specs/done/. /cost not captured in-session."
   totals:
     tokens_total: 0
     estimated_usd: 0
-    session_count: 0
+    session_count: 6
 ---
 
 # SPEC-001: Architecture decision records
@@ -100,6 +142,37 @@ to them rather than re-arguing the choice in PR descriptions.
       output and reviewer signoff
 - [ ] If any decision lands at confidence < 0.7, it gets a
       corresponding entry in `guidance/questions.yaml`
+
+### Frame outcomes folded into Build (2026-04-25)
+
+Frame critique surfaced refinements that land in DECs / specs as part
+of this spec's Build cycle (rather than as superseding DECs):
+
+- DEC-001: `sync` feature rationale broadened to mention `oneshot`
+- DEC-002: `gzip` feature dropped (throughput needs on-wire bytes);
+  HTTP proxy auto-detection disabled by default
+- DEC-003: trait sketch uses explicit `Result<_, BackendError>`
+- DEC-005: "ample headroom" tempered to "comfortable headroom" with
+  RSS budget arithmetic
+- DEC-006: `ip_version` field added to `TestResult`; `connections`
+  split into `connections_configured` + `connections_active`;
+  forward-compat note for field additions; throughput warm-up window
+  documented
+- DEC-007: `cargo-binstall` compatibility called out as zero-cost
+  win, queued for STAGE-005 verification
+- SPEC-002: gzip removed from reqwest features
+- SPEC-004: `--color <auto|always|never>` flag added (with `NO_COLOR`
+  env var respected when `auto`)
+- SPEC-005: shared client config (`no_proxy()`, `https_only(true)`)
+  + 10GB response size cap on Generic backend reads
+- STAGE-003 stage doc: notes for SPEC-014 (latency-phase progress)
+  and SPEC-019 (NO_COLOR env var)
+- STAGE-005 stage doc: shell completions + manpage as stretch
+- PROJ-001 brief: `PROJ-002-bufferbloat` added as Wave 2 candidate
+- `guidance/questions.yaml`: cargo-dist-freshness question raised for
+  STAGE-005
+
+Build cycle applies these inline; no DECs are superseded.
 
 ## Failing Tests
 
@@ -179,9 +252,9 @@ revised; the build phase locks them.
 
 ### Build-phase reflection
 
-1. **What was unclear in the spec that slowed you down?** —
-2. **Was there a constraint or decision that should have been listed but wasn't?** —
-3. **If you did this task again, what would you do differently?** —
+1. **What was unclear in the spec that slowed you down?** — Build was unusual: Frame outcomes were applied inline rather than via a separate Design cycle, because this spec is documentation-only. The "Frame outcomes folded into Build" subsection in the spec body was added during Build to record that, but the *expectation* of inlining wasn't stated upfront — a future doc-only spec template should make that explicit.
+2. **Was there a constraint or decision that should have been listed but wasn't?** — DEC-004's JSON-path inconsistency with DEC-006 (`latency_method` vs `latency.method`) was caught by Verify, not by the spec's own acceptance criteria. The Verify checklist (or the spec template) should grow a "cross-DEC consistency" check item so the same mistake doesn't recur on multi-DEC specs.
+3. **If you did this task again, what would you do differently?** — Run the cross-DEC consistency sweep at the end of Build, not at Verify; the fix was small but cost a punch-list round-trip. Also: capture `/cost` at the end of each session — five of six entries here are null because no one ran `/cost` before the session ended.
 
 ---
 
@@ -189,6 +262,6 @@ revised; the build phase locks them.
 
 *Appended during the **ship** cycle.*
 
-1. **What would I do differently next time?** — <not yet shipped>
-2. **Does any template, constraint, or decision need updating?** — <not yet shipped>
-3. **Is there a follow-up spec to write now?** — <not yet shipped>
+1. **What would I do differently next time?** — Run Verify in a fresh session before declaring Build complete. We caught one real cross-DEC bug (DEC-004 ↔ DEC-006 JSON path) doing exactly that on this spec; the discipline pays. Also capture `/cost` at the end of every session — five of six entries here are null-numeric.
+2. **Does any template, constraint, or decision need updating?** — Yes, two small additions: (a) add a "cross-DEC consistency check" line item to the Verify checklist (or to the spec template's acceptance criteria), so multi-DEC specs sweep for shared-field naming drift before declaring Build done; (b) the spec template's Build-phase reflection should make explicit when inlining Frame outcomes (instead of superseding DECs) is acceptable, since this spec did so without an upfront convention.
+3. **Is there a follow-up spec to write now?** — No new spec. SPEC-002 (Cargo project skeleton) is already drafted and is the natural next step. One small ergonomic candidate worth noting in passing: a `just record-cost SPEC-NNN <cycle>` helper that appends a `cost.sessions` entry from a `/cost` clipboard paste — would cut the friction that left five entries null on this spec. Not blocking; capture it as a future tooling tweak if it keeps coming up.

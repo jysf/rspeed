@@ -16,22 +16,37 @@
 #   (b) delete the question if it was resolved without a formal decision.
 
 questions:
-  - id: example-caching-strategy
-    question: "Should session state be cached in Redis or in-memory?"
+  - id: dec-007-cargo-dist-freshness
+    question: "Verify cargo-dist is still maintained and suitable for our matrix, or commit to the hand-rolled fallback, before SPEC-027 leaves Frame."
     priority: medium
     status: open
-    raised_by: claude
-    raised_at: 2026-04-19
+    raised_by: claude-opus-4-7
+    raised_at: 2026-04-25
     assigned_to: null
+    blocks: SPEC-027
     notes: |
-      Initial deployment is single-instance so in-memory works, but
-      horizontal scaling will require Redis. Deferring until traffic
-      justifies it.
+      DEC-007's confidence is 0.70, right at the AGENTS.md §17
+      threshold. The DEC body explicitly anticipates re-evaluation at
+      STAGE-005 time. STAGE-005 is ~10 working days away; cargo-dist
+      may have changed by then. Concrete check: is the project still
+      shipping releases? Does its current GitHub Actions workflow
+      template still align with our matrix (macOS arm64 + x86_64,
+      Linux x86_64, Windows x86_64)? If "no" to either, fall back to
+      a hand-rolled matrix workflow per the DEC's own escape hatch.
 
-  - id: example-rate-limit-scope
-    question: "Should rate limits be per-IP, per-user, or both?"
+  - id: throughput-warmup-duration
+    question: "Is 2 seconds the right throughput warm-up window, or should it be auto-detected from CWND saturation?"
     priority: low
     status: open
-    raised_by: human
-    raised_at: 2026-04-19
+    raised_by: claude-opus-4-7
+    raised_at: 2026-04-25
     assigned_to: null
+    blocks: SPEC-007
+    notes: |
+      DEC-006 commits to a fixed 2s warm-up window. STAGE-002's
+      MetricsAccumulator implements this. STAGE-004 perf work may
+      reveal that 2s is too long (wastes test time on fast links) or
+      too short (slow-start incomplete on high-RTT links). A more
+      sophisticated approach detects CWND saturation by watching
+      throughput stabilize before recording. Defer until we have
+      measurements.

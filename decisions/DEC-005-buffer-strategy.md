@@ -73,8 +73,9 @@ clone it (cheap — `Bytes` is reference-counted) for each request body.
 
 - After warm-up, no allocations in the read loop.
 - 2MB of fixed buffer pressure fits inside the 20MB RSS budget with
-  ample headroom for tokio's task stacks, rustls state, and reqwest
-  bookkeeping.
+  comfortable (not generous) headroom: rough estimate is 9–13MB at
+  idle and 12–15MB peak during a test, leaving 5–8MB of cushion. Pool
+  sizing increases here eat directly into that cushion.
 - The pool size is a tuning parameter we may adjust in Stage 4 perf
   work. If 1 Gbps requires more buffers in flight, we revisit.
 - The terminology "zero-copy" is avoided in the codebase and the

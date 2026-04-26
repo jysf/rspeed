@@ -237,6 +237,32 @@ src/backend/
 `src/lib.rs` adds `pub mod backend;` and re-exports `Backend`,
 `BackendError`.
 
+### Shared `reqwest::Client` configuration
+
+Both backends construct a `reqwest::Client` with one non-default
+(per DEC-002):
+
+```rust
+reqwest::Client::builder()
+    .no_proxy()             // ignore HTTP_PROXY/HTTPS_PROXY env vars
+    .build()
+```
+
+We deliberately do **not** set `https_only(true)` even though the
+default Cloudflare URL is HTTPS — the Generic backend may legitimately
+target an internal `http://` test server (the SPEC-006 mock server is
+plain HTTP for fixture simplicity). Protocol enforcement happens at
+the URL level, not the client level.
+
+The Generic backend additionally **caps response size** (e.g.,
+`response_max_size: 10GB`) when reading download streams, so a
+misbehaving or hostile custom server cannot make rspeed run for an
+hour by reporting an absurd `Content-Length`. Implementation lives
+in the streaming reader, not the backend trait.
+
+For SPEC-005 the stub `Client` is constructed but not actually used
+(all methods return `NotImplemented`). STAGE-002 wires it up.
+
 ### Trait-shape evolution warning
 
 Stage 2 will likely need to add a method like `connection_factory()`

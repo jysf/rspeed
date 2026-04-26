@@ -74,6 +74,15 @@ Roughly 14 hours of focused work.
 - Release packaging (STAGE-005)
 - A TUI / monitor-mode dashboard (deferred — see DEC-008)
 
+### Notes for specs not yet written (carried forward from SPEC-001 Frame)
+
+- **SPEC-014 (indicatif progress bars):** include the latency phase
+  in the progress display, not just download/upload. ~1s of latency
+  probing with no visible feedback feels like a hang.
+- **SPEC-019 (TTY detection):** respect the `NO_COLOR` env var (any
+  non-empty value disables color), and honor SPEC-004's
+  `--color <auto|always|never>` override. owo-colors supports both.
+
 ## Spec Backlog
 
 - [ ] (not yet written) — Human renderer: indicatif progress bars

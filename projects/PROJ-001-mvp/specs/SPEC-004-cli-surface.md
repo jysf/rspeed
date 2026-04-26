@@ -80,6 +80,7 @@ are committed.
   - `--no-upload` — skip the upload phase.
   - `--no-download` — skip the download phase. Conflicts with `--no-upload`.
   - `-f, --format <FORMAT>` — output format. Default: `human`. Values: `human`, `json`, `silent`.
+  - `--color <WHEN>` — color output. Default: `auto`. Values: `auto`, `always`, `never`. `auto` enables only on a TTY and respects the `NO_COLOR` env var.
   - `-4, --ipv4` — force IPv4. Conflicts with `-6, --ipv6`.
   - `-6, --ipv6` — force IPv6.
   - `-v, --verbose` — count flag (`-v`, `-vv`, `-vvv`) for log level.

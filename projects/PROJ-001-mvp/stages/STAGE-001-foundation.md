@@ -74,14 +74,14 @@ dependency choices, and CI shape — and we'd get drift across stages.
 
 ## Spec Backlog
 
-- [ ] SPEC-001 (frame) — Architecture decision records
+- [x] SPEC-001 (shipped on 2026-04-25) — Architecture decision records
 - [ ] SPEC-002 (frame) — Cargo project skeleton
 - [ ] SPEC-003 (frame) — CI matrix on GitHub Actions
 - [ ] SPEC-004 (frame) — CLI surface with clap derive
 - [ ] SPEC-005 (frame) — Backend trait and concrete stubs
 - [ ] SPEC-006 (frame) — Integration test harness with mock server
 
-**Count:** 0 shipped / 6 active / 0 pending
+**Count:** 1 shipped / 5 active / 0 pending
 
 ## Dependency order
 
