@@ -21,13 +21,20 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - macos-15         # arm64, primary
-          - macos-15-large   # x86_64 Intel, primary (requires larger runners)
-          - ubuntu-24.04     # x86_64, primary
-          - windows-2025     # x86_64, best-effort
+          - macos-15      # arm64, primary (cross-checks x86_64 below)
+          - ubuntu-24.04  # x86_64, primary
+          - windows-2025  # x86_64, best-effort
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --check
       - run: cargo clippy --all-targets -- -D warnings
       - run: cargo test
+
+      # macOS x86_64 is "secondary" tier — compile-validated only,
+      # not test-executed. Avoids the paid macos-15-large runner.
+      - name: Cross-check x86_64-apple-darwin
+        if: matrix.os == 'macos-15'
+        run: |
+          rustup target add x86_64-apple-darwin
+          cargo check --target x86_64-apple-darwin --all-targets

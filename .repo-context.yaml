@@ -78,7 +78,7 @@ performance_budgets:
 
 target_platforms:
   - { os: macos,   arch: arm64,    tier: primary }
-  - { os: macos,   arch: x86_64,   tier: primary }
+  - { os: macos,   arch: x86_64,   tier: secondary }   # compile-checked via cross-compile on arm64 CI; not test-executed (paid Intel runner avoided)
   - { os: linux,   arch: x86_64,   tier: primary }
   - { os: linux,   arch: arm64,    tier: secondary }
   - { os: windows, arch: x86_64,   tier: best_effort }

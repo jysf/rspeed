@@ -48,14 +48,16 @@ Windows 2025. Linux arm64 coverage is deferred until GitHub makes
 arm64 Linux runners available on the free tier for public repos, or
 until we add a self-hosted runner. Tracked in SPEC-003.
 
-## CI: macOS x86_64 requires larger runners
+## CI: macOS x86_64 coverage
 
-The `macos-15-large` runner (Intel x86_64) used in the CI matrix is
-a GitHub "larger runner". For public repositories, larger runners may
-require a GitHub Teams or Enterprise plan, or consume free minutes at
-a higher rate. If CI costs become a concern, drop `macos-15-large`
-from PR runs (keep it on push-to-main only) or downgrade to
-best-effort tier in `.repo-context.yaml`. Flagged in SPEC-003 Build.
+GitHub-hosted Intel macOS runners (`macos-15-large` and similar) are
+paid runners even for public repos (~$0.16/min). For the rspeed MVP we
+accept the cost trade-off: macOS x86_64 is reclassified from "primary"
+to "secondary" tier (see `AGENTS.md` and `.repo-context.yaml`). CI
+compile-validates the target via `cargo check --target x86_64-apple-darwin`
+on the free arm64 runner. Test execution on Intel macOS depends on user
+bug reports. Revisit if (a) Intel-specific bugs are reported, or (b) a
+free Intel macOS runner becomes available.
 
 ## Scripts assume 3-digit zero-padded IDs
 

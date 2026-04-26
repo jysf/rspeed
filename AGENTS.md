@@ -434,9 +434,12 @@ Either redesign or escalate to revise the budget in
 
 | Tier | Platforms | Standard |
 |---|---|---|
-| Primary | macOS arm64, macOS x86_64, Linux x86_64 | All tests pass; perf budget met; bug-fix priority |
-| Secondary | Linux arm64 | All tests pass; perf budget met but not actively tuned |
+| Primary | macOS arm64, Linux x86_64 | All tests pass on CI; perf budget met; bug-fix priority |
+| Secondary | macOS x86_64¹, Linux arm64² | See footnotes |
 | Best-effort | Windows x86_64 | Builds clean; basic functionality works; no perf guarantees |
+
+¹ **macOS x86_64:** compile-validated via `cargo check --target x86_64-apple-darwin` on the arm64 CI runner (paid Intel runner avoided). Test execution and perf validation depend on user reports.
+² **Linux arm64:** tests pass when run locally; no GitHub-hosted arm64 Linux runner available for CI yet (see `KNOWN_LIMITATIONS.md`).
 
 Specs that introduce platform-conditional code (`#[cfg(target_os = ...)]`)
 must justify the conditional in the spec's Implementation Context section

@@ -110,6 +110,7 @@ and windows-latest, with caching, in under 5 minutes total.
 4. **Added `timeout-minutes: 15` per job** — default GitHub timeout is 6h; 15min fails fast on hung runners.
 5. **Added `permissions: contents: read`** at workflow level — defense in depth; no write permissions granted to the Actions token.
 6. **Linux arm64 deferred** — standard GitHub-hosted runners do not list arm64 Linux in their available images table (as of 2026-04-26). Documented in `KNOWN_LIMITATIONS.md`; four-OS matrix kept.
+7. **Cascade: macOS x86_64 reclassified primary → secondary.** Build flagged that the only x86_64 macOS runner now (`macos-15-large`) is paid even on public repos. Rather than incur recurring cost, dropped from CI matrix and added a `cargo check --target x86_64-apple-darwin` step on the arm64 runner; updated `.repo-context.yaml` and `AGENTS.md` to reflect the tier change. Documented in `KNOWN_LIMITATIONS.md`.
 
 ## Failing Tests
 
