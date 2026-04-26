@@ -13,6 +13,6 @@ Cycle prompts live in `prompts/SPEC-001-<cycle>.md`.
 
 - [x] **build** — completed 2026-04-25 — commit b07ac6d on feat/spec-001-adrs (14 files, +166/-25); Frame outcomes applied inline to DECs and Stage-1 specs
 
-- [?] **verify** — first pass produced PUNCH LIST 2026-04-25 (DEC-004↔DEC-006 JSON path; cost.sessions backfill; timeline staleness); fixes applied 2026-04-25; awaiting re-verify in a fresh session
+- [x] **verify** — completed 2026-04-25 — first pass produced PUNCH LIST (DEC-004↔DEC-006 JSON path; cost.sessions backfill; timeline staleness); fixes applied at commit 3cc4e01; ✅ approved on re-verify 2026-04-25
 
-- [ ] **ship** — prompt: pending (waiting on re-verify)
+- [x] **ship** — completed 2026-04-25 — Build reflection backfilled; Ship reflection added; cost.totals computed (session_count: 6); stage backlog updated; spec archived to specs/done/
