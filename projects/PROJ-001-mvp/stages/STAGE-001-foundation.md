@@ -77,11 +77,11 @@ dependency choices, and CI shape — and we'd get drift across stages.
 - [x] SPEC-001 (shipped on 2026-04-25) — Architecture decision records
 - [x] SPEC-002 (shipped on 2026-04-26) — Cargo project skeleton
 - [x] SPEC-003 (shipped on 2026-04-26) — CI matrix on GitHub Actions
-- [ ] SPEC-004 (frame) — CLI surface with clap derive
+- [x] SPEC-004 (shipped on 2026-04-26) — CLI surface with clap derive
 - [ ] SPEC-005 (frame) — Backend trait and concrete stubs
 - [ ] SPEC-006 (frame) — Integration test harness with mock server
 
-**Count:** 3 shipped / 3 active / 0 pending
+**Count:** 4 shipped / 2 active / 0 pending
 
 ## Dependency order
 

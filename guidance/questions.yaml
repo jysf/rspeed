@@ -50,6 +50,19 @@ questions:
       acceptance criteria or AGENTS.md's rspeed-specific section. Defer
       until the next toolchain-touching spec or a template revision pass.
 
+  - id: actions-node24-migration
+    question: "When should we bump GitHub Actions to Node.js 24-compatible versions (actions/checkout@v5 etc.) before the June 2026 deprecation?"
+    priority: low
+    status: open
+    raised_by: claude-sonnet-4-6
+    raised_at: 2026-04-26
+    assigned_to: null
+    notes: |
+      CI annotations on every run flag actions/checkout@v4 as Node 20.
+      Default switches to Node 24 on June 2, 2026. Plenty of runway.
+      Check whether actions/checkout@v5 is GA, and whether
+      Swatinem/rust-cache has a Node 24 release before bumping.
+
   - id: throughput-warmup-duration
     question: "Is 2 seconds the right throughput warm-up window, or should it be auto-detected from CWND saturation?"
     priority: low

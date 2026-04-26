@@ -17,9 +17,9 @@ Cycle prompts live in `prompts/SPEC-004-<cycle>.md`.
   - cargo fmt --check: clean; cargo clippy -- -D warnings: clean
   - cargo build --release: 884K stripped binary
 
-- [ ] **verify** — prompt: pending (waiting on build)
+- [x] **verify** — 2026-04-26 — ✅ APPROVED; PR #4 promoted to ready; CI green (macos-15 ✅ ubuntu-24.04 ✅ windows-2025 ✅); all 10 Frame outcomes confirmed; no unwrap/expect in library code; Cli not exported; snapshots read cleanly. agent: claude-sonnet-4-6
 
-- [ ] **ship** — prompt: pending (waiting on verify)
+- [x] **ship** — 2026-04-26 — archived to specs/done/; PR #4 ready-for-review; 9 CLI flags shipped via clap derive; Cli/Config two-struct split; 11 tests green on 3 OSes. agent: claude-sonnet-4-6
 
 ## Cost sessions
 

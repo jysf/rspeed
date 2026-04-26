@@ -2,7 +2,7 @@
 task:
   id: SPEC-004
   type: story
-  cycle: build
+  cycle: ship
   estimated_hours: 3-4
   blocked: false
   priority: high
@@ -42,10 +42,23 @@ cost:
       tokens_total: null
       estimated_usd: null
       note: "Build session 2026-04-26; run /cost to fill in"
+    - cycle: verify
+      agent: claude-sonnet-4-6
+      interface: claude-code
+      tokens_total: null
+      estimated_usd: null
+      note: "Verify session 2026-04-26; APPROVED; PR #4 promoted to ready"
+    - cycle: ship
+      agent: claude-sonnet-4-6
+      interface: claude-code
+      date: 2026-04-26
+      tokens_total: null
+      estimated_usd: null
+      note: "Ship session 2026-04-26; folded verify bookkeeping, backfilled build-phase reflection (bin_name lesson), answered Ship reflections, updated stage backlog and timeline, archived spec"
   totals:
     tokens_total: 0
     estimated_usd: 0
-    session_count: 2
+    session_count: 4
 ---
 
 # SPEC-004: CLI surface with clap derive
@@ -245,22 +258,22 @@ All 10 outcomes from the Frame critique (Opus 4.7, 2026-04-26) are incorporated:
 ## Build Completion
 
 - **Branch:** feat/spec-004-cli-surface
-- **PR:**
-- **All acceptance criteria met?** <pending verification>
+- **PR:** #4
+- **All acceptance criteria met?** Yes — verified 2026-04-26 by claude-sonnet-4-6
 - **New decisions emitted:** none (all covered by existing DECs)
 - **Deviations from spec:** none
 - **Follow-up work identified:** none
 
 ### Build-phase reflection
 
-1. **What was unclear that slowed you down?** — Nothing significant; the spec and Frame outcomes were clear.
-2. **Constraint or decision that should have been listed but wasn't?** — None identified.
-3. **If you did this task again, what would you do differently?** — No changes; the two-struct split (Cli/Config) kept things clean.
+1. **What was unclear that slowed you down?** — Frame was thorough; nothing materially unclear in Build. The two Frame decisions worth most (Url over String, Cli private from lib) were clearly recommended and avoided downstream churn. The bin_name cross-platform issue was a CI-catch surprise, not a spec gap.
+2. **Constraint or decision that should have been listed but wasn't?** — A Rust-CLI convention "always set `bin_name` explicitly when using clap derive, to match the crate name across platforms" would have preempted the Windows `rspeed.exe` issue. Worth a one-liner in AGENTS.md's rspeed conventions section or a future Rust patterns doc.
+3. **If you did this task again, what would you do differently?** — Set `bin_name` preemptively when first writing the `#[command(...)]` attribute. Adds zero effort; avoids one CI round-trip.
 
 ---
 
 ## Reflection (Ship)
 
-1. **What would I do differently next time?** — <not yet shipped>
-2. **Does any template, constraint, or decision need updating?** — <not yet shipped>
-3. **Is there a follow-up spec to write now?** — <not yet shipped>
+1. **What would I do differently next time?** — The fresh-session Verify + push-before-Verify-claims-done discipline is paying off four-for-four; keep doing it. SPEC-005 (Backend trait) is the first concurrency-touching spec — consider Opus for both Frame and Verify there.
+2. **Does any template, constraint, or decision need updating?** — Add a one-liner to AGENTS.md's rspeed conventions section: "clap derive: always set `bin_name` explicitly on `#[command(...)]` to match the crate name across platforms." Small but recurring; the bin_name landmine has hit at least two other CLI projects.
+3. **Is there a follow-up spec to write now?** — No. SPEC-005 is the natural next spec (Backend trait), already drafted. The Node.js 20 nag in CI has a question filed in `guidance/questions.yaml#actions-node24-migration` (priority: low, ~5 weeks runway); no action needed before SPEC-005.
