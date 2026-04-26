@@ -2,7 +2,7 @@
 task:
   id: SPEC-002
   type: chore
-  cycle: frame
+  cycle: build
   blocked: false
   priority: high
   complexity: M
@@ -29,7 +29,21 @@ references:
 value_link: "infrastructure enabling STAGE-001 — without a buildable Cargo skeleton, no later spec can land code"
 
 cost:
-  sessions: []
+  sessions:
+    - cycle: frame
+      agent: claude-opus-4-7
+      interface: claude-code
+      date: 2026-04-26
+      tokens_total: null
+      estimated_usd: null
+      notes: "Frame critique produced 5 decisions (School B deps, MSRV 1.91.0, version 0.0.1, DEC-002 inline reqwest 0.12→0.13, <1MB binary check) plus 3 bonus items (forbid unsafe_code, soft .gitignore AC, deferred clippy denies). Outcomes inlined into Build per SPEC-001 precedent. /cost not captured separately."
+    - cycle: build
+      agent: claude-opus-4-7
+      interface: claude-code
+      date: 2026-04-26
+      tokens_total: null
+      estimated_usd: null
+      notes: "Build inlined Frame outcomes; landed Cargo skeleton (rust-toolchain.toml, Cargo.toml School B deps, src/lib.rs, src/main.rs, tests/version.rs, LICENSE-MIT, LICENSE-APACHE rename, README placeholder); DEC-002 inline refinement applied. Gates: fmt/clippy clean, debug+release build, 1 test passing, release binary 358K stripped. /cost not captured in-session."
   totals:
     tokens_total: 0
     estimated_usd: 0
@@ -79,41 +93,21 @@ specs add integration tests against the lib API.
 ## Acceptance Criteria
 
 - [ ] `Cargo.toml` declares the package as `rspeed`, edition `2024`,
-      MSRV pinned to a specific stable Rust version (set to current
-      stable at time of writing, e.g. `1.85.0`)
+      version `0.0.1`, with `rust-version = "1.91.0"` (MSRV)
 - [ ] `Cargo.toml` `license` field is `"MIT OR Apache-2.0"` (replacing
       current `"MIT"`)
-- [ ] `rust-toolchain.toml` exists and pins `channel = "1.85.0"`
-      (or whatever was chosen)
-- [ ] Dependencies listed and feature-gated per DEC-001 and DEC-002:
+- [ ] `rust-toolchain.toml` exists and pins `channel = "1.91.0"`
+- [ ] `Cargo.toml` declares `[lints.rust] unsafe_code = "forbid"`
+- [ ] Dependencies (School B — only what SPEC-002 itself uses; every
+      other dep moves to its first-consuming spec, see Frame outcomes
+      below):
   ```toml
-  clap     = { version = "4", features = ["derive"] }
-  tokio    = { version = "1", default-features = false, features = [
-                  "rt-multi-thread", "net", "time", "macros",
-                  "io-util", "sync"
-              ] }
-  reqwest  = { version = "0.12", default-features = false, features = [
-                  "rustls-tls", "stream", "http2"
-              ] }    # gzip intentionally omitted per DEC-002
-  serde       = { version = "1", features = ["derive"] }
-  serde_json  = "1"
-  anyhow      = "1"
-  thiserror   = "2"
-  indicatif   = "0.17"
-  owo-colors  = "4"
-  bytes       = "1"
-  socket2     = "0.5"
-  futures     = "0.3"
-  chrono      = { version = "0.4", default-features = false, features = ["serde", "clock"] }
-  ```
-- [ ] Dev-dependencies declared:
-  ```toml
-  assert_cmd  = "2"
-  predicates  = "3"
-  insta       = { version = "1", features = ["yaml"] }
-  tokio-test  = "0.4"
-  axum        = "0.8"
-  tempfile    = "3"
+  [dependencies]
+  anyhow = "1"
+
+  [dev-dependencies]
+  assert_cmd = "2"
+  predicates = "3"
   ```
 - [ ] `[profile.release]` configured:
   ```toml
@@ -129,27 +123,93 @@ specs add integration tests against the lib API.
 - [ ] `src/lib.rs` exports a `pub fn run() -> anyhow::Result<i32>`
       that prints `rspeed v<version>` and returns `Ok(0)`
 - [ ] `cargo build --release` produces a binary on macOS arm64
-- [ ] `./target/release/rspeed --version` prints `rspeed <version>` and
-      exits 0
-- [ ] Stripped binary is under 5MB (sanity check, not a perf budget
-      commitment)
-- [ ] `.gitignore` ignores `/target` and `**/*.rs.bk`. `Cargo.lock` is
-      committed (we are a binary crate)
+- [ ] `./target/release/rspeed` prints `rspeed v<version>` and exits 0
+      (the `--version` flag check waits for clap in SPEC-004; for now
+      the binary unconditionally prints the version line)
+- [ ] Stripped release binary is **under 1MB** (anyhow + std only —
+      the meaningful `<5MB` budget check happens in SPEC-005 when
+      reqwest+rustls land)
+- [ ] `.gitignore` already ignores `/target` and `*.rs.bk` from the
+      planning baseline; verify, no edit needed unless missing.
+      `Cargo.lock` is committed (we are a binary crate)
 - [ ] `README.md` updated to a placeholder with a one-line description
       and a `Status: under development` notice
 - [ ] `LICENSE-MIT` and `LICENSE-APACHE` files at the repo root
 - [ ] `cargo clippy --all-targets -- -D warnings` is clean
 - [ ] `cargo fmt --check` is clean
 
+### Frame outcomes folded into Build (2026-04-26)
+
+The Frame critique approved with five decisions plus three bonus items.
+All inlined here rather than written as a separate Frame commit, per
+the SPEC-001 precedent.
+
+1. **School B — just-in-time dep landing.** SPEC-002 lands only
+   `anyhow` (runtime) + `assert_cmd`, `predicates` (dev). Every other
+   dep originally listed moves to its first-consuming spec:
+   - `clap` (and `url` if used) → SPEC-004
+   - `tokio`, `reqwest`, `bytes`, `futures`, `socket2` → SPEC-005
+   - `serde`, `serde_json` → SPEC-005 or SPEC-006 (whichever serializes
+     first)
+   - `axum`, `tempfile`, `tokio-test` → SPEC-006
+   - `indicatif`, `owo-colors` → STAGE-003 specs
+   - `chrono` → STAGE-002 spec that lands `TestResult.started_at`
+   - `thiserror` → STAGE-002 spec that lands `BackendError`
+
+   Downstream specs are not edited in this Build; each picks up its
+   deps when its own Build cycle runs.
+
+2. **MSRV = 1.91.0.** Set in both `rust-toolchain.toml` (`channel`)
+   and `Cargo.toml` (`rust-version`).
+
+3. **Version = 0.0.1.** Bumped from the `0.0.0` reservation publish.
+   Reserves `0.1.0` for the actual MVP ship tag.
+
+4. **DEC-002 inline refinement (reqwest 0.12 → 0.13).** Frame caught
+   that 0.13 renamed feature `rustls-tls` → `rustls` and switched the
+   default TLS provider to `aws-lc-rs`. DEC-002 updated inline (not a
+   superseding DEC — the *decision* "use reqwest with rustls TLS" is
+   unchanged, only the version-specific feature name); confidence
+   dropped 0.90 → 0.85 to reflect the version-pinning surface.
+
+5. **`<1MB` binary check (vs the original `<5MB`).** Under School B,
+   SPEC-002's binary is `anyhow` + std only; ~500KB–1MB stripped is
+   expected. The meaningful `<5MB` budget check moves to SPEC-005,
+   when reqwest + rustls land.
+
+Bonus items folded in:
+
+- **`[lints.rust] unsafe_code = "forbid"`** in `Cargo.toml`. Matches
+  AGENTS.md "no unsafe in library code."
+- **`.gitignore` AC softened** to a verify-only check. The post-
+  planning-baseline `.gitignore` already covers `/target` and
+  `*.rs.bk`.
+- **Acceptance criterion language** for `--version` clarified. Without
+  clap, the binary prints the version line unconditionally; the
+  literal `--version` flag handling is SPEC-004's responsibility.
+
+Bonus items deliberately **deferred**:
+
+- Strict clippy denies (`unwrap_used`, `expect_used`, `panic`) — defer
+  to the spec that first introduces lib-side fallibility (likely
+  SPEC-005). `main.rs` is allowed to unwrap on unrecoverable startup
+  per AGENTS.md, so blanket denies need a more nuanced setup.
+- Explicit `[[bin]]` table — default works.
+- `cargo audit` advisory check — that's SPEC-003 (CI matrix) territory.
+
 ## Failing Tests
 
-Written in design, made to pass in build.
+Written in design, made to pass in build. Updated in Build per Frame
+outcomes: clap moves to SPEC-004, so the unknown-flag rejection test
+also moves to SPEC-004 (where flag parsing first exists). SPEC-002
+ships only the version-print test.
 
 - **`tests/version.rs`** (integration test using `assert_cmd`)
-  - `"prints version on --version"` — `rspeed --version` exits 0,
-    stdout contains `"rspeed"` and the `CARGO_PKG_VERSION` value
-  - `"unknown flag exits non-zero"` — `rspeed --not-a-flag` exits with
-    a non-zero code
+  - `"prints_version_on_version_flag"` — `rspeed --version` exits 0,
+    stdout contains `"rspeed"` and the `CARGO_PKG_VERSION` value.
+    (Without clap, the binary unconditionally prints its version and
+    exits, so the `--version` flag is incidental — the assertion is
+    that the binary runs and reports its version.)
 
 ## Implementation Context
 

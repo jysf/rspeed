@@ -2,7 +2,7 @@
 insight:
   id: DEC-002
   type: decision
-  confidence: 0.90
+  confidence: 0.85
   audience:
     - developer
     - agent
@@ -57,8 +57,8 @@ Three plausible options:
 Use `reqwest` with `default-features = false`, opting into:
 
 ```toml
-reqwest = { version = "0.12", default-features = false, features = [
-    "rustls-tls",       # rustls instead of native-tls (no OpenSSL dep)
+reqwest = { version = "0.13", default-features = false, features = [
+    "rustls",           # rustls instead of native-tls (no OpenSSL dep) — feature renamed from "rustls-tls" in 0.13
     "stream",           # body streaming for download throughput measurement
     "http2",            # HTTP/2 support
 ] }
@@ -84,6 +84,10 @@ what the user wants. A future `--use-proxy` flag can opt back in.
 - Cross-compilation is straightforward (no OpenSSL cross-build issues).
 - Slight binary size cost (rustls + ring/aws-lc-rs add ~1.5MB stripped),
   accepted for the deployability gain.
+- The `rustls` feature in reqwest 0.13 defaults the TLS provider to
+  `aws-lc-rs` (not `ring` as in 0.12). For our static-binary use case
+  this is a wash on size and is acceptable. STAGE-004 perf work may
+  revisit if it materially affects the budget.
 - We're tied to reqwest's API surface. If reqwest's streaming API
   changes between major versions, we adapt.
 - Should we ever need to drop down for fine-grained connection control
