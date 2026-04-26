@@ -5,7 +5,7 @@ use clap::{ArgAction, Parser, ValueEnum};
 use url::Url;
 
 #[derive(Debug, Parser)]
-#[command(name = "rspeed", version, about)]
+#[command(name = "rspeed", bin_name = "rspeed", version, about)]
 pub struct Cli {
     /// Test duration in seconds.
     #[arg(short = 'd', long, default_value_t = 10)]
