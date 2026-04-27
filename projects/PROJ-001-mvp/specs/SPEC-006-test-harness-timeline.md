@@ -7,12 +7,12 @@ Cycle prompts live in `prompts/SPEC-006-<cycle>.md`.
 
 ## Instructions
 
-- [ ] **frame** — prompt: pending (waiting on SPEC-005 to ship)
+- [x] **frame** — 2026-04-27 — Sonnet critique, GO with 8 inline AC folds per SPEC-001..005 precedent; agent: claude-sonnet-4-6
 
-- [ ] **design** — prompt: pending (waiting on frame)
+- [x] **design** — n/a (design folded into spec during Frame)
 
-- [ ] **build** — prompt: pending (waiting on design)
+- [x] **build** — 2026-04-27 — commit on `feat/spec-006-test-harness`; 20 tests passing (16 prior + 4 new smoke); binary still 884K; agent: claude-sonnet-4-6
 
-- [ ] **verify** — prompt: pending (waiting on build)
+- [ ] **verify** — pending fresh-session verify
 
-- [ ] **ship** — prompt: pending (waiting on verify)
+- [ ] **ship** — pending verify
