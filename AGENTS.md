@@ -77,8 +77,21 @@ Every cycle on a spec appends a session entry to the spec's
 `cost.sessions` list. Agents self-report so reports can aggregate AI
 spend over time.
 
-- **Claude Code:** run `/cost` at the end of your session.
-- **API calls:** use the `usage` object in the API response.
+- **Claude Code:** the AI session writes a `cost.sessions` entry with
+  null token fields during the cycle. After the session ends, the
+  user runs `/cost` and backfills the numbers via:
+  ```bash
+  just record-cost SPEC-NNN cycle --tokens-input N --tokens-output N --usd N.NN
+  ```
+  The helper updates the most recent matching-cycle entry that has
+  null tokens, converts the legacy `tokens_total: null` shorthand to
+  canonical `tokens_input` + `tokens_output` (which `scripts/_lib.sh`
+  aggregates), and recomputes `cost.totals`. Skipping the backfill is
+  acceptable — null-numeric entries are honored throughout the
+  reporting pipeline; the value then comes from `session_count` and
+  `agent` fields rather than aggregated token counts.
+- **API calls:** use the `usage` object in the API response. The
+  `record-cost` helper accepts the same flags.
 - **Claude.ai web:** estimate based on session length. Set
   `interface: claude-ai` so reports can distinguish estimates.
 - **Third-party agents** (Ollama, Kilo, Factory, etc.): use whatever
@@ -91,15 +104,12 @@ from the session entries.
 
 Reports aggregate cost by cycle, by interface, by spec, and by stage.
 
-For Claude Code sessions specifically, the `/cost` command is
-user-facing and not programmatically accessible to the AI session
-running inside Claude Code. `tokens_total: null` with descriptive
-notes is therefore the documented reality across STAGE-001's 24 cycle
-sessions; the value comes from `session_count` and `agent` fields
-rather than aggregated token counts. The planned tooling improvement
-(a `just record-cost` helper or a Stop hook) is queued in
-`guidance/questions.yaml#cost-tracking-tooling-debt` and will be
-addressed as a small dedicated spec after STAGE-001.
+**STAGE-001 history note:** the 24 cost.sessions entries shipped during
+STAGE-001 were written before the `just record-cost` helper existed and
+all carry `tokens_total: null`. Backfilling them retroactively isn't
+useful (the original `/cost` numbers are gone). Going forward, run
+`just record-cost` at the end of each session — the helper's per-spec
+view confirms what landed.
 
 ---
 
