@@ -11,7 +11,7 @@ Cycle prompts live in `prompts/SPEC-005-<cycle>.md`.
 
 - [x] **design** — n/a — Frame outcomes serve as design
 
-- [x] **build** — completed 2026-04-26 — branch `feat/spec-005-backend-trait`; 16 tests passing (2 unit + 13 cli + 1 version); 884K stripped binary (LTO dead-code-elim strips unused tokio/reqwest/rustls; will grow in STAGE-002). agent: claude-sonnet-4-6
+- [x] **build** — completed 2026-04-26 — commit `fab6af6` on `feat/spec-005-backend-trait`; 16 tests passing (2 unit + 13 cli + 1 version); 884K stripped binary (LTO dead-code-elim strips unused tokio/reqwest/rustls; will grow in STAGE-002). agent: claude-sonnet-4-6
 
 - [ ] **verify** — pending fresh-session verify (Opus recommended — substantive consistency sweep across trait + error + Send+Sync + cross-spec wires)
 
