@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers; panicking is correct here
+
 use assert_cmd::Command;
 
 // --- exit code tests ---
@@ -120,4 +122,25 @@ fn snapshot_custom_server_no_upload() {
         .clone();
     let stdout = String::from_utf8(output.stdout).unwrap();
     insta::assert_snapshot!(stdout);
+}
+
+// --- backend selection tests ---
+
+#[test]
+fn backend_cloudflare_default() {
+    Command::cargo_bin("rspeed")
+        .unwrap()
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("Backend: cloudflare"));
+}
+
+#[test]
+fn backend_generic_with_server() {
+    Command::cargo_bin("rspeed")
+        .unwrap()
+        .args(["-s", "https://example.com"])
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("Backend: generic"));
 }

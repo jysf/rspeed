@@ -14,6 +14,16 @@ categories = ["command-line-utilities", "network-programming"]
 anyhow = "1"
 clap   = { version = "4", features = ["derive"] }
 url    = "2"
+tokio = { version = "1", default-features = false, features = [
+    "rt-multi-thread", "net", "time", "macros", "io-util", "sync"
+] }    # per DEC-001
+reqwest = { version = "0.13", default-features = false, features = [
+    "rustls", "stream", "http2"
+] }    # per DEC-002 (post-cascade refinement)
+bytes        = "1"
+futures      = "0.3"
+thiserror    = "2"
+async-trait  = "0.1"
 
 [dev-dependencies]
 assert_cmd = "2"
@@ -22,6 +32,12 @@ insta      = "1"
 
 [lints.rust]
 unsafe_code = "forbid"
+
+[lints.clippy]
+unwrap_used  = "warn"
+expect_used  = "warn"
+panic        = "warn"
+unreachable  = "warn"
 
 [profile.release]
 lto = "thin"

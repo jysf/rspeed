@@ -2,10 +2,11 @@
 task:
   id: SPEC-005
   type: story
-  cycle: frame
+  cycle: build
   blocked: false
   priority: high
-  complexity: S
+  complexity: M
+  estimated_hours: 3-4
 
 project:
   id: PROJ-001
@@ -28,11 +29,25 @@ references:
 value_link: "delivers STAGE-001's backend seam — the trait Stage 2 fills with real measurement code"
 
 cost:
-  sessions: []
+  sessions:
+    - cycle: frame
+      date: 2026-04-26
+      agent: claude-opus-4-7
+      interface: claude-ai
+      tokens_total: null
+      estimated_usd: null
+      note: "Frame critique with 12 inline edits; all approved and folded into Build"
+    - cycle: build
+      date: 2026-04-26
+      agent: claude-sonnet-4-6
+      interface: claude-code
+      tokens_total: null
+      estimated_usd: null
+      note: "Build session; all AC met; 16 tests passing"
   totals:
     tokens_total: 0
     estimated_usd: 0
-    session_count: 0
+    session_count: 2
 ---
 
 # SPEC-005: Backend trait and concrete stubs
@@ -78,10 +93,9 @@ building `Config` and prints the chosen backend's name.
 
 - [ ] `src/backend/mod.rs` defines:
   - The `Backend` trait
-  - The `DownloadOpts`, `UploadOpts` input types
-  - The `DownloadStream`, `UploadResult` output types
-  - The `BackendError` enum (initial variants: `NotImplemented`,
-    `Network(reqwest::Error)`, `Protocol(String)`)
+  - The `DownloadOpts`, `UploadOpts` input types (both `#[non_exhaustive]` with `pub fn new(...)` constructors)
+  - The `DownloadStream`, `UploadResult` output types (`UploadResult` also `#[non_exhaustive]` with constructor)
+  - The `BackendError` enum (initial variants: `NotImplemented`, `Network(reqwest::Error)`, `Protocol(String)`; marked `#[non_exhaustive]`)
 - [ ] `src/backend/cloudflare.rs` defines `CloudflareBackend` with
       a hardcoded base URL `https://speed.cloudflare.com`. All trait
       methods return `Err(BackendError::NotImplemented)`. Implements
@@ -91,7 +105,7 @@ building `Config` and prints the chosen backend's name.
       `Err(BackendError::NotImplemented)`.
 - [ ] `src/backend/select.rs` defines:
   ```rust
-  pub fn select(config: &Config) -> Box<dyn Backend>;
+  pub fn select(config: &Config) -> Box<dyn Backend + Send + Sync>;
   ```
   Returns `CloudflareBackend::default()` if `config.server.is_none()`,
   otherwise `GenericHttpBackend::new(url)`.
@@ -105,23 +119,23 @@ building `Config` and prints the chosen backend's name.
       `DEC-003` (preferred for in-place evolution) or write
       `decisions/DEC-009-backend-trait-shape.md` (preferred if shape
       diverges meaningfully from DEC-003's sketch). Pick one in design.
-- [ ] `Cargo.toml` adds the runtime deps this spec first consumes
-      (under School B, deferred from SPEC-002 to their first-consuming
-      spec):
+- [ ] `Cargo.toml` adds the runtime deps:
   ```toml
   [dependencies]
-  tokio       = { version = "1", features = [...DEC-001 list...] }
-  reqwest     = { version = "0.13", default-features = false, features = ["rustls", "stream", "http2"] }  # per DEC-002 inline-refined in SPEC-002
+  tokio       = { version = "1", default-features = false, features = ["rt-multi-thread", "net", "time", "macros", "io-util", "sync"] }
+  reqwest     = { version = "0.13", default-features = false, features = ["rustls", "stream", "http2"] }
   bytes       = "1"
-  futures     = "0.3"      # for BoxStream
-  thiserror   = "2"        # for BackendError
-  async-trait = "0.1"      # see "async_trait vs AFIT" below
+  futures     = "0.3"
+  thiserror   = "2"
+  async-trait = "0.1"
   ```
-  Versions are aspirational — verify current major lines at Build
-  time. Each addition is justified by the trait sketch below; the
-  `no-new-top-level-deps-without-decision` constraint is satisfied
-  by DEC-001 (tokio), DEC-002 (reqwest), and this spec body for the
-  rest.
+- [ ] `[lints.clippy]` block added to `Cargo.toml` with `unwrap_used`, `expect_used`, `panic`, `unreachable` all as `"warn"`
+- [ ] `Cargo.lock` committed (project policy from SPEC-002)
+- [ ] `select()` returns `Box<dyn Backend + Send + Sync>` (auto-trait bounds must be explicit on `dyn` types)
+- [ ] `BackendError` is `#[non_exhaustive]`
+- [ ] `DownloadOpts`, `UploadOpts`, `UploadResult` all `#[non_exhaustive]`
+- [ ] Stripped release binary <5MB on macOS arm64 (expected 3.5–4.5MB after this dep wave)
+- [ ] This is the v0.1 public library API surface; renames/removals post-v0.1.0 are breaking changes and require a major version bump
 
 ## Failing Tests
 
@@ -271,6 +285,8 @@ target an internal `http://` test server (the SPEC-006 mock server is
 plain HTTP for fixture simplicity). Protocol enforcement happens at
 the URL level, not the client level.
 
+STAGE-002 must send `Accept-Encoding: identity` on download requests so servers don't compress (compressed bodies inflate the throughput count vs on-wire bytes — see DEC-002). SPEC-005 stubs don't make requests, but the requirement belongs here so the trait's first real consumer doesn't forget.
+
 The Generic backend additionally **caps response size** (e.g.,
 `response_max_size: 10GB`) when reading download streams, so a
 misbehaving or hostile custom server cannot make rspeed run for an
@@ -281,6 +297,8 @@ For SPEC-005 the stub `Client` is constructed but not actually used
 (all methods return `NotImplemented`). STAGE-002 wires it up.
 
 ### Trait-shape evolution warning
+
+The trait shape is provisional. STAGE-002 may add `connection_factory()`, may refactor `latency_probe` to return `LatencyResult` directly, and may convert `upload` to a stream. Document any such evolution by amending DEC-003 (preferred) or emitting a new DEC.
 
 Stage 2 will likely need to add a method like `connection_factory()`
 so the throughput layer can open new connections without going through
@@ -294,20 +312,39 @@ catches up in Stage 2.
 
 ---
 
+## Frame outcomes folded into Build (2026-04-26)
+
+All 12 inline edits from the Frame critique (Opus, 2026-04-26) were approved and folded into this Build session:
+
+1. **(A) async_trait kept** — AFIT for `dyn Backend + Send` still requires per-method `+ Send` annotations; `#[async_trait]` is cleaner for now. Migration is a one-PR refactor later.
+2. **(B) Trait shape locked with provisional-evolution note** — Added to Trait-shape evolution warning section above.
+3. **(C) `BackendError` `#[non_exhaustive]` + orchestrator-translation doc comment** — Variants `Timeout`/`Cancelled` deferred to STAGE-002/003.
+4. **(D) `Accept-Encoding: identity` note for STAGE-002** — Added to Shared reqwest::Client configuration section above.
+5. **(E) Public API surface + `#[non_exhaustive]` on opts/result types** — All opts/result types have `#[non_exhaustive]` and `pub fn new(...)` constructors. v0.1 surface acknowledged.
+6. **(F) Dep versions verified** — tokio 1, reqwest 0.13, bytes 1, futures 0.3, thiserror 2, async-trait 0.1 (verified current at Frame 2026-04-26).
+7. **(G) Lib-side clippy discipline as `warn`** — `[lints.clippy]` block added to `Cargo.toml`.
+8. **(H) `select()` returns `Box<dyn Backend + Send + Sync>`** — Auto-trait bounds must be explicit on `dyn` types even when `Backend: Send + Sync`.
+9. **(I) Cross-spec consistency** — Frame sweep was clean; no spec body edits needed beyond DEC-003 update.
+10. **(J) Binary size AC with concrete range** — <5MB stripped on macOS arm64; expected 3.5–4.5MB. Recorded in Build Completion below.
+11. **(K) AC enumeration** — Full checklist added to Acceptance Criteria above.
+12. **(L) DEC-003 inline refinement** — `select()` return type updated; `#[non_exhaustive]` consequence bullet added.
+
+---
+
 ## Build Completion
 
-- **Branch:**
-- **PR:**
-- **All acceptance criteria met?** <not yet built>
-- **New decisions emitted:**
-- **Deviations from spec:**
-- **Follow-up work identified:**
+- **Branch:** `feat/spec-005-backend-trait`
+- **PR:** pending (pushed for CI; PR created as draft)
+- **All acceptance criteria met?** Yes — see checklist notes below
+- **New decisions emitted:** DEC-003 inline refinement (select() return type + `#[non_exhaustive]` consequence bullet)
+- **Deviations from spec:** Integration test files in `tests/` required `#![allow(clippy::unwrap_used, clippy::expect_used)]` to pass `cargo clippy --all-targets -- -D warnings`; the build prompt stated tests/ is exempt by default, which is incorrect — with `[lints.clippy]` + `-D warnings`, integration tests are also linted.
+- **Follow-up work identified:** Binary size AC note — stripped release binary is 884K on macOS arm64, well below the expected 3.5–4.5MB range. This is because LTO + dead code elimination strips all tokio/reqwest/rustls code paths since the stubs never invoke them. The dep wave is present at type-check time; binary will grow substantially in STAGE-002 when real network code lands. Flag for Verify; STAGE-004 owns final size optimization.
 
 ### Build-phase reflection
 
-1. **What was unclear that slowed you down?** —
-2. **Constraint or decision that should have been listed but wasn't?** —
-3. **If you did this task again, what would you do differently?** —
+1. **What was unclear that slowed you down?** The claim that `tests/` is exempt from clippy lints by default (in the build prompt) is incorrect when using `[lints.clippy]` + `-D warnings`. Took one iteration to discover and add `#![allow(...)]` to the two integration test files.
+2. **Constraint or decision that should have been listed but wasn't?** The `[lints.clippy]` block applies to all targets including integration tests when combined with `-D warnings`. Should be noted in AGENTS.md: "integration test files in `tests/` should add `#![allow(clippy::unwrap_used, clippy::expect_used)]` at the top."
+3. **If you did this task again, what would you do differently?** Pre-add the allow attribute to integration test files before the clippy run, saving one iteration.
 
 ---
 

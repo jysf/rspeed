@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::expect_used)] // test helpers; panicking is correct here
+
 use assert_cmd::Command;
 use predicates::prelude::*;
 

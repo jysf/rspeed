@@ -7,12 +7,12 @@ Cycle prompts live in `prompts/SPEC-005-<cycle>.md`.
 
 ## Instructions
 
-- [ ] **frame** — prompt: pending (waiting on SPEC-004 to ship)
+- [x] **frame** — completed 2026-04-26 — Opus critique, 12 inline edits + DEC-003 update folded into Build per SPEC-001/002/003/004 precedent. agent: claude-opus-4-7
 
-- [ ] **design** — prompt: pending (waiting on frame)
+- [x] **design** — n/a — Frame outcomes serve as design
 
-- [ ] **build** — prompt: pending (waiting on design)
+- [x] **build** — completed 2026-04-26 — branch `feat/spec-005-backend-trait`; 16 tests passing (2 unit + 13 cli + 1 version); 884K stripped binary (LTO dead-code-elim strips unused tokio/reqwest/rustls; will grow in STAGE-002). agent: claude-sonnet-4-6
 
-- [ ] **verify** — prompt: pending (waiting on build)
+- [ ] **verify** — pending fresh-session verify (Opus recommended — substantive consistency sweep across trait + error + Send+Sync + cross-spec wires)
 
-- [ ] **ship** — prompt: pending (waiting on verify)
+- [ ] **ship** — pending verify
