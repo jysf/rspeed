@@ -301,6 +301,34 @@ DECs are stable; specs come and go. DECs don't reciprocally list specs.
 
 ## 15. Cycle-Specific Rules
 
+### Cost capture (every cycle)
+
+Every cycle session — Frame, Design, Build, Verify, Ship — must end
+its final response with a cost-capture reminder block, pre-filled
+with the active spec ID and the cycle just completed. The AI session
+can't read its own `/cost` (slash commands are user-facing), so this
+reminder is the load-bearing mechanism for getting cost numbers into
+`cost.sessions`:
+
+```
+Cost capture — run `/cost` in this session, then paste:
+just record-cost SPEC-NNN <cycle> --tokens-input <N> --tokens-output <N> --usd <N.NN>
+```
+
+Discipline:
+
+- Substitute `SPEC-NNN` with the active spec id and `<cycle>` with
+  the literal cycle name (`frame` / `design` / `build` / `verify` /
+  `ship`). Leave the three `<N>` placeholders for the user to fill
+  in from `/cost`.
+- Output the reminder as the **last** thing in the response, after
+  the work summary and any commit/push notes. Don't bury it in the
+  middle.
+- This applies even on punch-list, cascade, or follow-up cycles —
+  any session that touched the spec's content earns a `cost.sessions`
+  entry, so any session needs a cost-capture reminder at the end.
+- See §4 for the helper's full schema notes and `scripts/record-cost.py`.
+
 ### During **build**
 
 Start a **new Claude session**. Do not continue from the design session.
