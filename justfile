@@ -123,6 +123,15 @@ backlog *FLAGS:
 roadmap:
     @./scripts/roadmap.sh
 
+# Backfill cost numbers into a spec's cost.sessions entry. Run after /cost at
+# the end of a Claude Code session.
+# Usage: just record-cost SPEC-NNN cycle --tokens-input N --tokens-output N [--usd N.NN] [--note "text"]
+# Updates the most recent matching-cycle entry that has null token fields,
+# converts legacy `tokens_total: null` to canonical `tokens_input` + `tokens_output`,
+# and recomputes cost.totals. See scripts/record-cost.py for full schema notes.
+record-cost SPEC_ID CYCLE *FLAGS:
+    @python3 ./scripts/record-cost.py "{{SPEC_ID}}" "{{CYCLE}}" {{FLAGS}}
+
 # ----------------------------------------------------------------------------
 # HELPERS
 # ----------------------------------------------------------------------------

@@ -66,24 +66,25 @@ questions:
   - id: cost-tracking-tooling-debt
     question: "Should we build a `just record-cost` helper (or a Stop hook) to backfill `tokens_total` / `estimated_usd` into cost.sessions entries after Claude Code sessions end?"
     priority: medium
-    status: open
+    status: answered
     raised_by: claude-sonnet-4-6
     raised_at: 2026-04-27
+    answered_at: 2026-04-27
     assigned_to: null
     blocks: null
     notes: |
-      All 24 cost.sessions entries across STAGE-001's 6 specs landed
-      with tokens_total: null because Claude Code's /cost command is
-      user-facing and not programmatically readable by the AI session.
-      Three options for resolution:
-      (A) `just record-cost SPEC-NNN cycle --tokens-input N --tokens-output N --usd N`
-          helper that updates the right cost.sessions entry. ~half-day.
-      (B) Claude Code Stop hook that reads /cost output and writes to
-          the spec automatically. Higher effort; needs spec/cycle context.
-      (C) Accept the gap; AGENTS.md §4 already updated to acknowledge
-          null is the documented reality.
-      AGENTS.md §4 updated as part of STAGE-001 Stage Ship to reflect (C).
-      Pick (A) or (B) as a small dedicated spec after STAGE-001 ship.
+      Answered via Option A: `just record-cost SPEC-NNN cycle [--tokens-input N]
+      [--tokens-output N] [--usd N.NN] [--note "text"]` helper landed in
+      `scripts/record-cost.py` (Python stdlib only; no external deps).
+      The helper finds the most recent matching-cycle entry with null token
+      fields, converts legacy `tokens_total: null` shorthand to canonical
+      `tokens_input` + `tokens_output` (matching what `scripts/_lib.sh` reads
+      for aggregation), recomputes `cost.totals`. Verified end-to-end:
+      `_lib.sh` parser reads exactly what `record-cost.py` writes.
+      AGENTS.md §4 updated to document the helper as the standard backfill
+      flow. Option B (Stop hook) deferred — would be invisible but adds
+      complexity for marginal benefit; revisit if manual backfill friction
+      becomes a real problem.
 
   - id: throughput-warmup-duration
     question: "Is 2 seconds the right throughput warm-up window, or should it be auto-detected from CWND saturation?"
