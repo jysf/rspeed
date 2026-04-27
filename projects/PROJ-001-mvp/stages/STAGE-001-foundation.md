@@ -1,7 +1,7 @@
 ---
 stage:
   id: STAGE-001
-  status: active
+  status: shipped
   priority: high
   target_complete: null
 
@@ -11,7 +11,7 @@ repo:
   id: rspeed
 
 created_at: 2026-04-25
-shipped_at: null
+shipped_at: 2026-04-27
 
 value_contribution:
   advances: "establishes the buildable substrate so all subsequent stages can stop reinventing project structure, dependency choices, CI, and the backend seam"
@@ -130,9 +130,37 @@ SPEC-001 → SPEC-002, then SPEC-003/4/5/6 in any reasonable order.
 
 ## Stage-Level Reflection
 
-*To be filled in when this stage ships.*
+- **Did we deliver the outcome in "What This Stage Is"?** Yes. Buildable
+  Rust project with `cargo test` and `cargo run -- --help` clean on
+  macOS arm64 (cross-compile-validated for x86_64); CI green on macOS
+  arm64 + Ubuntu 24.04 + Windows 2025 in <2 min wall-clock; all eight
+  DECs committed and indexed; `Backend` trait with `CloudflareBackend` +
+  `GenericHttpBackend` stubs + `select()` factory; axum-based `MockServer`
+  integration test harness implementing DEC-003's Generic backend protocol.
 
-- **Did we deliver the outcome?** <not yet>
-- **How many specs did it actually take?** <not yet>
-- **What changed?** <not yet>
-- **Lessons?** <not yet>
+- **How many specs did it actually take?** 6 specs as planned. No splits,
+  no surprises requiring follow-on specs within STAGE-001.
+
+- **What changed between starting and shipping?** Eight DEC inline
+  refinements during Build cycles (none requiring superseding DECs):
+  DEC-001 (`sync` rationale), DEC-002 (reqwest 0.12→0.13,
+  `rustls-tls`→`rustls`, aws-lc-rs provider note, confidence 0.90→0.85),
+  DEC-003 (`Send + Sync` on `dyn Backend`, `#[non_exhaustive]` Consequence),
+  DEC-004 (JSON path `latency_method`→`latency.method`), DEC-005
+  ("comfortable" headroom + RSS arithmetic), DEC-006 (`ip_version` field,
+  `connections` split, throughput warm-up, additions-non-breaking note),
+  DEC-007 (cargo-binstall mention). One scope reclassification: macOS
+  x86_64 primary→secondary tier (paid Intel runner avoided;
+  cross-compile-validated). One MSRV update (1.85.0→1.91.0 because the
+  Frame critique caught the original was 14 months stale).
+
+- **Lessons that should update AGENTS.md, templates, or constraints?**
+  Eight lessons captured — most landing as AGENTS.md additions, one as a
+  `guidance/questions.yaml` entry. The Frame-outcomes-inlined-into-Build
+  pattern is now codified in §15. Fresh-session Verify discipline is
+  reinforced in §16 with the 5-for-5 catch record.
+
+- **Should any spec-level reflections be promoted to stage-level
+  lessons?** All eight lessons were promoted from per-spec reflections (or
+  from the verify session that flagged them); spec-level reflections
+  themselves stay as-is in `specs/done/`.
