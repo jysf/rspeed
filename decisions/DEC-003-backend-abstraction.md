@@ -83,7 +83,7 @@ Provide two impls:
 Selection logic lives in `src/backend/select.rs`:
 
 ```rust
-pub fn select(config: &Config) -> Box<dyn Backend> {
+pub fn select(config: &Config) -> Box<dyn Backend + Send + Sync> {
     match &config.server {
         Some(url) => Box::new(GenericHttpBackend::new(url.clone())),
         None      => Box::new(CloudflareBackend::default()),
@@ -105,3 +105,4 @@ pub fn select(config: &Config) -> Box<dyn Backend> {
 - The Generic backend's documented protocol is a public contract we
   commit to maintaining across minor versions. Any change requires a
   deprecation cycle.
+- The trait + opts/result types use `#[non_exhaustive]` to keep STAGE-002 evolution semver-friendly. Adding a new `BackendError` variant or a new `DownloadOpts` field is non-breaking; renaming/removing existing items is breaking.
