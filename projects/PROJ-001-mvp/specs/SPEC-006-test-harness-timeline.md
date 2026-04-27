@@ -11,7 +11,7 @@ Cycle prompts live in `prompts/SPEC-006-<cycle>.md`.
 
 - [x] **design** — n/a (design folded into spec during Frame)
 
-- [x] **build** — 2026-04-27 — commit on `feat/spec-006-test-harness`; 20 tests passing (16 prior + 4 new smoke); binary still 884K; agent: claude-sonnet-4-6
+- [x] **build** — 2026-04-27 — commit `c9155b1` on `feat/spec-006-test-harness`; 20 tests passing (16 prior + 4 new smoke); binary still 884K; agent: claude-sonnet-4-6
 
 - [ ] **verify** — pending fresh-session verify
 
