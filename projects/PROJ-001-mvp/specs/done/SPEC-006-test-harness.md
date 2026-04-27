@@ -2,7 +2,7 @@
 task:
   id: SPEC-006
   type: chore
-  cycle: verify
+  cycle: ship
   blocked: false
   priority: high
   complexity: S
@@ -41,10 +41,23 @@ cost:
       tokens_total: null
       estimated_usd: null
       note: "Build session; axum mock server + 4 smoke tests"
+    - cycle: verify
+      agent: claude-sonnet-4-6
+      interface: claude-code
+      tokens_total: null
+      estimated_usd: null
+      note: "Fresh-session verify; all ACs met; 8 Frame outcomes confirmed; deviation defensible; CI all-green"
+    - cycle: ship
+      date: 2026-04-27
+      agent: claude-sonnet-4-6
+      interface: claude-code
+      tokens_total: null
+      estimated_usd: null
+      note: "Ship session 2026-04-27; folded verify bookkeeping, answered Ship reflections, updated stage backlog and timeline, archived spec; last spec in STAGE-001"
   totals:
     tokens_total: 0
     estimated_usd: 0
-    session_count: 0
+    session_count: 4
 ---
 
 # SPEC-006: Integration test harness with mock server
@@ -297,6 +310,6 @@ behavior gets tested via live integration tests gated behind the
 
 ## Reflection (Ship)
 
-1. **What would I do differently next time?** — <not yet shipped>
-2. **Does any template, constraint, or decision need updating?** — <not yet shipped>
-3. **Is there a follow-up spec to write now?** — <not yet shipped>
+1. **What would I do differently next time?** — The serde-vs-reqwest-json call is a small project-wide pattern worth codifying: when test code needs JSON, prefer dev-dep `serde_json` over enabling reqwest's `json` feature in prod. Belong in the Stage Ship retrospective so it's captured once for all future specs rather than rediscovered per spec.
+2. **Does any template, constraint, or decision need updating?** — AGENTS.md or a Stage Ship note should add a "test-only deps stay in `[dev-dependencies]`" rule. The existing `no-new-top-level-deps-without-decision` constraint is slightly ambiguous about dev-deps — clarifying that dev-deps need less ceremony (Frame acknowledgment is sufficient) would save a compile-cycle hesitation next time.
+3. **Is there a follow-up spec to write now?** — No. STAGE-001 is complete; STAGE-002 (Measurement core) is next. All follow-ups belong to the Stage Ship retrospective, not here.

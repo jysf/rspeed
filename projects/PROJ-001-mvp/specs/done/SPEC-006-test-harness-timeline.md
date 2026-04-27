@@ -13,6 +13,6 @@ Cycle prompts live in `prompts/SPEC-006-<cycle>.md`.
 
 - [x] **build** — 2026-04-27 — commit `c9155b1` on `feat/spec-006-test-harness`; 20 tests passing (16 prior + 4 new smoke); binary still 884K; agent: claude-sonnet-4-6
 
-- [ ] **verify** — pending fresh-session verify
+- [x] **verify** — 2026-04-27 — ✅ APPROVED; PR #6 CI all-green (macos-15, ubuntu-24.04, windows-2025 + x86_64-apple-darwin cross-check); all 8 Frame outcomes confirmed; serde/serde_json dev-dep deviation defensible (School B-aligned); agent: claude-sonnet-4-6
 
-- [ ] **ship** — pending verify
+- [x] **ship** — 2026-04-27 — archived to specs/done/; STAGE-001 complete (6/6 specs shipped); Stage Ship cycle next
