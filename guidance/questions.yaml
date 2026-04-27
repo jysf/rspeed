@@ -63,6 +63,28 @@ questions:
       Check whether actions/checkout@v5 is GA, and whether
       Swatinem/rust-cache has a Node 24 release before bumping.
 
+  - id: cost-tracking-tooling-debt
+    question: "Should we build a `just record-cost` helper (or a Stop hook) to backfill `tokens_total` / `estimated_usd` into cost.sessions entries after Claude Code sessions end?"
+    priority: medium
+    status: open
+    raised_by: claude-sonnet-4-6
+    raised_at: 2026-04-27
+    assigned_to: null
+    blocks: null
+    notes: |
+      All 24 cost.sessions entries across STAGE-001's 6 specs landed
+      with tokens_total: null because Claude Code's /cost command is
+      user-facing and not programmatically readable by the AI session.
+      Three options for resolution:
+      (A) `just record-cost SPEC-NNN cycle --tokens-input N --tokens-output N --usd N`
+          helper that updates the right cost.sessions entry. ~half-day.
+      (B) Claude Code Stop hook that reads /cost output and writes to
+          the spec automatically. Higher effort; needs spec/cycle context.
+      (C) Accept the gap; AGENTS.md §4 already updated to acknowledge
+          null is the documented reality.
+      AGENTS.md §4 updated as part of STAGE-001 Stage Ship to reflect (C).
+      Pick (A) or (B) as a small dedicated spec after STAGE-001 ship.
+
   - id: throughput-warmup-duration
     question: "Is 2 seconds the right throughput warm-up window, or should it be auto-detected from CWND saturation?"
     priority: low

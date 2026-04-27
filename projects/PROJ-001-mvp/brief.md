@@ -142,13 +142,13 @@ All decisions live in `/decisions/`. Relevant for this project:
 Total: ~10–12 working days. Buffer of 2–4 days for spillover, polish,
 docs, and unforeseen issues — fits the 2-week box.
 
-- [ ] STAGE-001 (active) — Foundation: ADRs, Cargo skeleton, CI, CLI surface, backend trait stubs, mock server
+- [x] STAGE-001 (shipped on 2026-04-27) — Foundation: ADRs, Cargo skeleton, CI, CLI surface, backend trait stubs, mock server
 - [ ] STAGE-002 (proposed) — Measurement core: latency probe, parallel-connection download/upload, snapshot fan-out
 - [ ] STAGE-003 (proposed) — Output & UX: human/json/silent renderers, error rendering, TTY detection
 - [ ] STAGE-004 (proposed) — Cross-platform & performance: hit budgets on macOS/Linux, Windows works
 - [ ] STAGE-005 (proposed) — Release: cargo-dist, Homebrew tap, crates.io publish
 
-**Count:** 0 shipped / 1 active / 4 proposed
+**Count:** 1 shipped / 0 active / 4 proposed
 
 ## Risks
 

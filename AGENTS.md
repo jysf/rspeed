@@ -91,6 +91,16 @@ from the session entries.
 
 Reports aggregate cost by cycle, by interface, by spec, and by stage.
 
+For Claude Code sessions specifically, the `/cost` command is
+user-facing and not programmatically accessible to the AI session
+running inside Claude Code. `tokens_total: null` with descriptive
+notes is therefore the documented reality across STAGE-001's 24 cycle
+sessions; the value comes from `session_count` and `agent` fields
+rather than aggregated token counts. The planned tooling improvement
+(a `just record-cost` helper or a Stop hook) is queued in
+`guidance/questions.yaml#cost-tracking-tooling-debt` and will be
+addressed as a small dedicated spec after STAGE-001.
+
 ---
 
 ## 5. Tech Stack
@@ -319,6 +329,16 @@ session entry, then compute `cost.totals`. Then
 `just archive-spec SPEC-NNN`. If stage backlog is complete, run the
 Stage Ship prompt.
 
+### Frame-outcomes-inlined-into-Build pattern
+
+STAGE-001 specs followed a "Frame outcomes folded into Build" pattern:
+the Frame critique produces a written list of resolutions (typically
+5-12 items), and the Build cycle inlines them in the same commit
+rather than emitting separate Frame-only artifacts. Works for specs
+where Frame outcomes are tractable refinements (the common case). Does
+NOT work for specs requiring structural rework — those should produce a
+NO-GO Frame verdict and return to design before Build starts.
+
 ---
 
 ## 16. Session Hygiene (claude-only specific)
@@ -333,6 +353,14 @@ risk. Four habits keep it at bay:
 3. **Weekly review is non-optional.** Without a second agent pushing
    back, drift compounds silently. Run `just weekly-review`.
 4. **Honest confidence values on decisions.** See Section 17.
+5. **Fresh-session Verify is worth its cost.** STAGE-001 saw
+   fresh-session Verify catch real bugs in 5 of 6 specs: DEC-004↔006
+   path mismatch (SPEC-001), cross-spec drift across SPEC-004/005/006
+   (SPEC-002), `rust-toolchain.toml` components gap (SPEC-003),
+   Windows `bin_name` rendering (SPEC-004), `[lints.clippy]` scope in
+   tests (SPEC-005). Do not relax the cycle-context-fresh discipline
+   on substantive specs (Rust code, public API surface, concurrency)
+   even when continuation feels cheaper.
 
 ---
 
@@ -388,6 +416,12 @@ If a spec would push us past a budget, that's a Frame-phase blocker.
 Either redesign or escalate to revise the budget in
 `.repo-context.yaml` (which requires a DEC).
 
+Binary-size budgets only meaningfully exercise once code is reachable.
+Stub-only specs (returning `Err(NotImplemented)` from trait methods)
+pass the budget vacuously because LTO+DCE strips unreachable transitive
+deps. Verify the meaningful check at the spec that first wires the deps
+into actual call paths — for rspeed, that's STAGE-002 measurement code.
+
 ### Style
 
 - `cargo fmt` runs in CI with `--check`. PRs that don't fmt-pass don't merge.
@@ -397,6 +431,16 @@ Either redesign or escalate to revise the budget in
   unrecoverable and well-reported.
 - No `panic!()` or `unreachable!()` outside of test code unless the
   invariant is documented with a comment that survives review.
+- When using clap derive, set `bin_name` explicitly on `#[command(...)]`
+  to ensure consistent `--help` rendering across platforms (Windows
+  otherwise shows `argv[0]` which includes the `.exe` extension;
+  macOS/Linux drop it). One-line preemptive fix; otherwise discovered
+  via Windows CI snapshot diff.
+- When test code needs JSON parsing, prefer `serde_json` as a
+  `[dev-dependencies]` over enabling reqwest's `json` feature in
+  production. Keeps the production dep surface minimal; tests get JSON
+  parsing via `resp.text()` + `serde_json::from_str()` (one extra line
+  per test, zero production impact).
 
 ### Error handling
 
@@ -429,6 +473,21 @@ Either redesign or escalate to revise the budget in
   reviewer approval.
 - Benches via `criterion`, stored in `benches/`. Bench results
   recorded in `reports/` per the template.
+- Project-wide `[lints.clippy]` warnings (e.g., `unwrap_used`,
+  `expect_used`) apply to integration tests under
+  `cargo clippy --all-targets`. Use file-scope
+  `#![allow(clippy::unwrap_used, clippy::expect_used)]` at the top of
+  `tests/*.rs` files to preserve the lib-vs-test distinction. Lib code
+  stays constrained; fixture code can fail loudly via `unwrap()`.
+
+### Dependency discipline
+
+Each spec lands its own deps as it first consumes them ("School B" —
+just-in-time). The `no-new-top-level-deps-without-decision` constraint
+(severity: warning) is satisfied by inline justification in the spec
+body when the dep doesn't warrant a full DEC. Avoid School A (landing
+all anticipated deps in one early spec): it concentrates dep churn but
+obscures the per-spec rationale that makes future review tractable.
 
 ### Cross-platform priorities
 
