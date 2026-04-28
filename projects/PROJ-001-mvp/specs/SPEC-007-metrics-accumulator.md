@@ -461,7 +461,7 @@ convention established in SPEC-005.
 *Filled in at the end of the **build** cycle, before advancing to verify.*
 
 - **Branch:** `feat/spec-007-metrics-accumulator`
-- **PR (if applicable):** *(opened in build session — see timeline)*
+- **PR (if applicable):** [#9](https://github.com/jysf/rspeed/pull/9)
 - **All acceptance criteria met?** Yes — see below:
   - **AC-1:** ✅ `src/result.rs` defines all five public types with DEC-006 fields, `Serialize + Deserialize + Debug` on result types, `#[non_exhaustive]` on all five.
   - **AC-2:** ✅ `compute_latency_result` is public; computes median/min/max/jitter (Bessel-corrected); panics with descriptive message on empty slice.
