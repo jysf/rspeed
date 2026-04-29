@@ -83,7 +83,7 @@ Roughly 24 hours of focused work, padded for cycle overhead.
 
 ## Spec Backlog
 
-- [~] SPEC-007 — `MetricsAccumulator` and result types (design complete; awaiting Frame)
+- [x] SPEC-007 (shipped 2026-04-28) — `MetricsAccumulator` and result types
 - [ ] (not yet written) — Latency probe with HTTP RTT and TCP fallback
 - [ ] (not yet written) — Buffer pool implementation
 - [ ] (not yet written) — Cloudflare backend: real download/upload
@@ -91,7 +91,7 @@ Roughly 24 hours of focused work, padded for cycle overhead.
 - [ ] (not yet written) — Test orchestrator + headless JSON output
 - [ ] (not yet written) — Failure mode tests
 
-**Count:** 0 shipped / 1 active / 6 pending
+**Count:** 1 shipped / 0 active / 6 pending
 
 ## Critical invariants this stage establishes
 

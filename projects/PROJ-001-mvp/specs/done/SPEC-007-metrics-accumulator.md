@@ -2,7 +2,7 @@
 task:
   id: SPEC-007
   type: story
-  cycle: verify
+  cycle: ship
   blocked: false
   priority: high
   complexity: M
@@ -54,10 +54,26 @@ cost:
       tokens_output: null
       estimated_usd: null
       note: "Build: 10 integration tests + 4 unit tests pass; clippy/fmt clean. Tokio test-util added as dev-dep for paused-clock helpers."
+    - cycle: verify
+      date: 2026-04-28
+      agent: claude-opus-4-7
+      interface: claude-code
+      tokens_input: 18100
+      tokens_output: 3200000
+      estimated_usd: 3.65
+      note: "Verify: APPROVED. All 13 ACs met; CI green on all 3 OSes (1m25s); concurrency seams (DEC-008 #1 + #2) intact; no scope creep into TestSession (SPEC-012). Recommended inline DEC-008 refinement (MissedTickBehavior::Delay) and a follow-up doc note on the tokio::time::Instant substitution — neither blocks Ship."
+    - cycle: ship
+      date: 2026-04-28
+      agent: claude-sonnet-4-6
+      interface: claude-code
+      tokens_input: null
+      tokens_output: null
+      estimated_usd: null
+      note: "Ship: DEC-008 Consequences paragraph added (tokio paused-clock semantics); Build-phase reflection augmented with tokio::time::Instant note; Ship reflections answered; stage backlog and timeline updated; spec archived."
   totals:
-    tokens_total: 0
-    estimated_usd: 0
-    session_count: 3
+    tokens_total: 3218100
+    estimated_usd: 3.65
+    session_count: 5
 ---
 
 # SPEC-007: `MetricsAccumulator` and result types
@@ -493,6 +509,8 @@ convention established in SPEC-005.
 2. **Was there a constraint or decision that should have been listed but wasn't?**
    The `tokio` `test-util` feature gate is not surfaced in DEC-001 (Tokio feature set). It is dev-only, so it doesn't actually expand the prod surface DEC-001 cares about, but the build prompt could have called it out preemptively (same way `serde_json` is noted as test-only in AGENTS.md §15.Style). Treating this as a dev-dep convention rather than a constraint violation; not emitting a DEC.
 
+   The build also substituted `tokio::time::Instant` for `std::time::Instant` on internal timestamps so that `Instant::elapsed()` advances under `tokio::time::advance` in paused-time tests. Verify caught and recommended capturing this alongside the `MissedTickBehavior::Delay` substitution; both are now documented in DEC-008's Consequences as "Tokio paused-clock semantics for the snapshot cadence."
+
 3. **If you did this task again, what would you do differently?**
    Verify `MissedTickBehavior` and `start_paused` interaction *before* writing all 10 tests — I wrote the test file expecting the default Burst behavior and had to reason through whether each test would still pass once I switched to Delay (they all do, but it required a second pass). Cheap to run a single 5-line probe test first.
 
@@ -502,11 +520,8 @@ convention established in SPEC-005.
 
 *Appended during the **ship** cycle.*
 
-1. **What would I do differently next time?**
-   —
+1. **What would I do differently next time?** — Spec-authoring sessions for type-heavy specs with async cadence code benefit from listing the tokio paused-clock pattern as an Implementation Context note up front. The two substitutions (`MissedTickBehavior::Delay` and `tokio::time::Instant`) are the single biggest gotcha for testing async-interval logic, and surfacing them pre-Build means the implementer doesn't have to rediscover them mid-flight. A brief "Tokio time/timer checklist" bullet in the spec template's Implementation Context section would have saved one reasoning pass. Worth adding on the next AGENTS.md template revision pass (STAGE-003-ish, once a second async-cadence spec confirms the pattern holds).
 
-2. **Does any template, constraint, or decision need updating?**
-   —
+2. **Does any template, constraint, or decision need updating?** — Two candidates for the next AGENTS.md revision pass: (a) Testing Discipline: add a "tokio paused-clock pattern" note — any spec that uses `tokio::time::interval` should default to `MissedTickBehavior::Delay` + `tokio::time::Instant` for testability; tests should use `#[tokio::test(start_paused = true)]` + `tokio::time::advance`. (b) The spec template's Implementation Context section could include a one-line checklist item: "If tokio timers/intervals used: note `MissedTickBehavior` choice and `tokio::time::Instant` vs `std::time::Instant`." Both are STAGE-003-ish candidates — revisit once a second async-cadence spec either validates or invalidates the pattern.
 
-3. **Is there a follow-up spec I should write now before I forget?**
-   —
+3. **Is there a follow-up spec I should write now before I forget?** — No. SPEC-008 (latency probe with HTTP RTT and TCP fallback) is the natural next, already identified in the stage backlog. The `just session-cost` helper concept (discussed but not built during STAGE-001) remains queued via the existing `cost-tracking-tooling-debt` resolution note — revisit if `just record-cost` friction accumulates over the next few STAGE-002 specs.
