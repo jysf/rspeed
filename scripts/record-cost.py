@@ -39,6 +39,7 @@ def find_spec(spec_id: str, repo_root: Path) -> Path:
     candidates = [
         p for p in (repo_root / "projects").rglob(f"{spec_id}-*.md")
         if not p.name.endswith("-timeline.md")
+        and "prompts" not in p.parts
     ]
     if not candidates:
         sys.exit(f"ERROR: spec file not found: {spec_id}")

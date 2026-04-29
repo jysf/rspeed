@@ -66,13 +66,13 @@ cost:
       date: 2026-04-28
       agent: claude-sonnet-4-6
       interface: claude-code
-      tokens_input: null
-      tokens_output: null
-      estimated_usd: null
+      tokens_input: 7600
+      tokens_output: 863800
+      estimated_usd: 0.72
       note: "Ship: DEC-008 Consequences paragraph added (tokio paused-clock semantics); Build-phase reflection augmented with tokio::time::Instant note; Ship reflections answered; stage backlog and timeline updated; spec archived."
   totals:
-    tokens_total: 3218100
-    estimated_usd: 3.65
+    tokens_total: 4089500
+    estimated_usd: 4.37
     session_count: 5
 ---
 
