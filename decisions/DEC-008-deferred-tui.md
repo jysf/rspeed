@@ -89,3 +89,18 @@ These seams are codified as acceptance criteria on Stage 2 specs.
   considered (declarative React-like API) but ratatui's ecosystem
   maturity and immediate-mode model fit better for a real-time
   dashboard.
+- **Tokio paused-clock semantics for the snapshot cadence.** The
+  MetricsAccumulator (SPEC-007) uses `tokio::time::interval` with
+  `MissedTickBehavior::Delay` rather than the default `Burst`, and
+  internal timestamps use `tokio::time::Instant` rather than
+  `std::time::Instant`. Both choices are essential for deterministic
+  paused-time tests (`tokio::time::advance` + `start_paused = true`):
+  `Delay` aligns one snapshot tick per `advance(period)` call;
+  `tokio::time::Instant::elapsed()` advances under paused time while
+  `std::time::Instant` doesn't. In production both substitutions are
+  also defensible: `Delay` avoids stale snapshot bursts after a
+  briefly-blocked subscriber catches up; `tokio::time::Instant` is
+  semantically equivalent to `std::time::Instant` outside paused-time
+  contexts. STAGE-002's downstream specs (SPEC-008 latency probe,
+  SPEC-012 orchestrator) inherit these choices; tests should follow
+  the same pattern.
