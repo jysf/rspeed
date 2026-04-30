@@ -2,21 +2,21 @@
 
 use crate::config::Config;
 
-use super::{Backend, CloudflareBackend, GenericHttpBackend};
+use super::{Backend, BackendError, CloudflareBackend, GenericHttpBackend};
 
 /// Choose a backend based on the user's Config.
 ///
 /// - `--server <url>` set → `GenericHttpBackend`
 /// - otherwise → `CloudflareBackend` (default)
 ///
-/// Returns `Box<dyn Backend + Send + Sync>` because STAGE-002 will
-/// hold the backend across `tokio::spawn` task boundaries; the auto
-/// trait bounds must be on the `dyn` type explicitly (supertrait
-/// bounds on `Backend` don't propagate to trait objects automatically).
-pub fn select(config: &Config) -> Box<dyn Backend + Send + Sync> {
+/// Returns `Err(BackendError)` if client construction fails (e.g. TLS
+/// init failure). The cascade through `lib::run()` is one `?` operator;
+/// `anyhow::Result<i32>` wraps `BackendError` via its `std::error::Error`
+/// impl.
+pub fn select(config: &Config) -> Result<Box<dyn Backend + Send + Sync>, BackendError> {
     match &config.server {
-        Some(url) => Box::new(GenericHttpBackend::new(url.clone())),
-        None => Box::new(CloudflareBackend::default()),
+        Some(url) => Ok(Box::new(GenericHttpBackend::new(url.clone())?)),
+        None => Ok(Box::new(CloudflareBackend::new()?)),
     }
 }
 
@@ -43,14 +43,14 @@ mod tests {
 
     #[test]
     fn cloudflare_when_no_server() {
-        let backend = select(&cfg(None));
+        let backend = select(&cfg(None)).unwrap();
         assert_eq!(backend.name(), "cloudflare");
     }
 
     #[test]
     fn generic_when_server_set() {
         let url: Url = "https://example.com".parse().unwrap();
-        let backend = select(&cfg(Some(url)));
+        let backend = select(&cfg(Some(url))).unwrap();
         assert_eq!(backend.name(), "generic");
     }
 }

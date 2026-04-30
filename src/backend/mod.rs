@@ -5,6 +5,7 @@
 
 mod cloudflare;
 mod generic;
+pub(crate) mod latency;
 mod select;
 
 pub use cloudflare::CloudflareBackend;
@@ -16,13 +17,31 @@ use bytes::Bytes;
 use futures::stream::BoxStream;
 use std::time::Duration;
 
+/// Raw observations from a single latency probe run.
+///
+/// `method` is `"http_rtt"` or `"tcp_connect"` per DEC-004/DEC-006.
+/// The orchestrator (SPEC-012) passes these to `compute_latency_result`
+/// to produce the final `LatencyResult`.
+#[non_exhaustive]
+#[derive(Debug, Clone)]
+pub struct LatencyProbeOutcome {
+    pub method: &'static str,
+    pub samples: Vec<Duration>,
+}
+
+impl LatencyProbeOutcome {
+    pub fn new(method: &'static str, samples: Vec<Duration>) -> Self {
+        Self { method, samples }
+    }
+}
+
 /// The seam between measurement code (STAGE-002) and backend-specific
 /// transport. Provisional shape — STAGE-002 may evolve.
 #[async_trait]
 pub trait Backend: Send + Sync {
     fn name(&self) -> &'static str;
 
-    async fn latency_probe(&self, samples: usize) -> Result<Vec<Duration>, BackendError>;
+    async fn latency_probe(&self, samples: usize) -> Result<LatencyProbeOutcome, BackendError>;
 
     async fn download(&self, opts: &DownloadOpts) -> Result<DownloadStream, BackendError>;
 
@@ -83,12 +102,13 @@ impl UploadResult {
 ///
 /// Per AGENTS.md exit code table, the orchestrator (STAGE-002) is
 /// responsible for translating variants to process exit codes:
-/// `Network` → 3, `Protocol` → 4. The lib does not translate; the
-/// `main.rs` shim does (via `anyhow::Error::downcast_ref::<BackendError>()`
-/// once STAGE-002 wires the orchestrator).
+/// `Network` → 3, `Timeout` → 3 (network-class), `Protocol` → 4.
+/// The lib does not translate; the `main.rs` shim does (via
+/// `anyhow::Error::downcast_ref::<BackendError>()` once STAGE-002
+/// wires the orchestrator).
 ///
-/// Marked `#[non_exhaustive]` so STAGE-002 can add `Timeout`,
-/// `Cancelled`, `BodyTooLarge`, etc. without a semver-breaking change.
+/// Marked `#[non_exhaustive]` so future specs can add variants
+/// without a semver-breaking change.
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum BackendError {
@@ -98,4 +118,6 @@ pub enum BackendError {
     Network(#[from] reqwest::Error),
     #[error("protocol error: {0}")]
     Protocol(String),
+    #[error("timed out after {0:?}")]
+    Timeout(Duration),
 }

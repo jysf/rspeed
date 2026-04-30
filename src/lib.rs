@@ -9,7 +9,7 @@ pub mod metrics;
 pub mod result;
 pub use backend::{
     Backend, BackendError, CloudflareBackend, DownloadOpts, DownloadStream, GenericHttpBackend,
-    UploadOpts, UploadResult,
+    LatencyProbeOutcome, UploadOpts, UploadResult,
 };
 pub use config::{ColorWhen, Config, Format};
 pub use metrics::MetricsAccumulator;
@@ -21,7 +21,7 @@ pub use result::{
 pub fn run() -> anyhow::Result<i32> {
     let cli = cli::Cli::parse();
     let config = Config::from(cli);
-    let backend = backend::select(&config);
+    let backend = backend::select(&config)?;
     println!("{config:#?}");
     println!("Backend: {}", backend.name());
     Ok(0)

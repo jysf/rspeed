@@ -47,6 +47,6 @@ async fn mock_upload_echoes_byte_count() {
 #[tokio::test]
 async fn generic_backend_reports_name() {
     let mock = MockServer::start().await;
-    let backend = GenericHttpBackend::new(mock.base_url());
+    let backend = GenericHttpBackend::new(mock.base_url()).unwrap();
     assert_eq!(backend.name(), "generic");
 }

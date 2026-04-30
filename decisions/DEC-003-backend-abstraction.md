@@ -106,3 +106,22 @@ pub fn select(config: &Config) -> Box<dyn Backend + Send + Sync> {
   commit to maintaining across minor versions. Any change requires a
   deprecation cycle.
 - The trait + opts/result types use `#[non_exhaustive]` to keep STAGE-002 evolution semver-friendly. Adding a new `BackendError` variant or a new `DownloadOpts` field is non-breaking; renaming/removing existing items is breaking.
+- **Backend trait shape evolution at SPEC-008** (per the SPEC-005
+  "trait shape provisional" caveat). Two refinements applied in
+  one PR:
+  - `latency_probe()` return type changed from `Result<Vec<Duration>,
+    BackendError>` to `Result<LatencyProbeOutcome, BackendError>` where
+    `LatencyProbeOutcome { method: &'static str, samples: Vec<Duration> }`
+    is `#[non_exhaustive]` per project convention. The orchestrator
+    (SPEC-012) needs to populate `LatencyResult.method` in the final
+    TestResult; reporting which path the backend took belongs at the
+    trait return rather than orchestrator-side inference.
+  - Backend constructors are now fallible: `CloudflareBackend::new() ->
+    Result<Self, BackendError>` (replaces `Default`), `GenericHttpBackend::
+    new(url: Url) -> Result<Self, BackendError>`, and `select(&Config) ->
+    Result<Box<dyn Backend + Send + Sync>, BackendError>`. `reqwest::
+    ClientBuilder::build()` is fallible at the TLS provider / DNS
+    resolver init layer; panicking in lib code on these is a regression
+    of AGENTS.md's "no panics in lib code" invariant. The cascade
+    through `lib::run()` is one `?` operator (already
+    `anyhow::Result<i32>`).

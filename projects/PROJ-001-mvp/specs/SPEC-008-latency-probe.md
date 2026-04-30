@@ -2,7 +2,7 @@
 task:
   id: SPEC-008
   type: story
-  cycle: design
+  cycle: build
   blocked: false
   priority: high
   complexity: M
@@ -29,11 +29,27 @@ references:
 value_link: "delivers the latency phase of TestResult — the first STAGE-002 spec that exercises real network code"
 
 cost:
-  sessions: []
+  sessions:
+    - cycle: design
+      date: 2026-04-29
+      agent: claude-opus-4-7
+      interface: claude-code
+      tokens_input: 68300
+      tokens_output: 6600000
+      estimated_usd: 8.14
+      note: "Spec authoring + Frame critique in single Opus session (combined per SPEC-007 precedent); GO conditional on architect ack of item (A)"
+    - cycle: build
+      date: 2026-04-29
+      agent: claude-sonnet-4-6
+      interface: claude-code
+      tokens_input: null
+      tokens_output: null
+      estimated_usd: null
+      note: "Build session — all 8 Frame outcomes applied; 9 new latency tests + 34 prior all pass; tokens backfilled via just record-cost"
   totals:
-    tokens_total: 0
-    estimated_usd: 0
-    session_count: 0
+    tokens_total: null
+    estimated_usd: null
+    session_count: 2
 ---
 
 # SPEC-008: Latency probe with HTTP RTT and TCP fallback
@@ -868,3 +884,45 @@ question that needs an explicit yes from the architect; the mechanical
 patches are non-controversial.
 
 ---
+
+## Build Completion
+
+**Date:** 2026-04-29
+**Agent:** claude-sonnet-4-6 (Build cycle)
+**PR:** (to be assigned after push)
+
+### What was built
+
+All 8 Frame outcomes applied in a single commit on `feat/spec-008-latency-probe`:
+
+1. `CloudflareBackend::new() -> Result<Self, BackendError>` — `Default` impl dropped.
+2. `GenericHttpBackend::new(url: Url) -> Result<Self, BackendError>` — was infallible.
+3. `select(&Config) -> Result<Box<dyn Backend + Send + Sync>, BackendError>`.
+4. `lib::run()` propagates via `?` — one-line change.
+5. `latency_probe()` returns `LatencyProbeOutcome` (`#[non_exhaustive]`, `method + samples`).
+6. `BackendError::Timeout(Duration)` variant added; doc comment updated.
+7. Shared `pub(crate) probe()` at `src/backend/latency.rs`; private `http_rtt_probe`/`tcp_connect_probe` helpers; Frame outcome B applied (no `TcpTarget` enum; `tcp_target: String`).
+8. `MockServer::start_with_options(MockOptions)` + `ping_count()` — `start()` is a thin wrapper. `#![allow(dead_code)]` added to `tests/common/mod.rs` to suppress per-binary lint on shared fixture items.
+
+`LatencyProbeOutcome` re-exported from `src/lib.rs`. DEC-003 Consequences section updated inline.
+
+### Deviation: paused-clock for timeout test
+
+`http_probe_times_out_then_falls_back` uses `#[tokio::test]` (real time, ~1s) rather than `start_paused = true`. The paused-clock approach failed because `tokio::time::advance` fires timers for any timer created during the advance window — the TCP fallback's 1s timer (set at t=1s) falls inside any advance ≥ 2s, causing a spurious `Timeout`. Real-time is reliable and the test still exercises the timeout-triggers-fallback path. `both_http_and_tcp_fail_returns_error` keeps `start_paused = true` (connection refused is real-I/O, no timer contention).
+
+### Verification results
+
+```
+cargo fmt --check          ✅ clean
+cargo clippy --all-targets -D warnings  ✅ clean
+cargo build                ✅
+cargo build --release      ✅
+cargo test                 ✅ 43 tests (6 unit + 13 cli + 9 latency + 10 metrics + 4 smoke + 1 version)
+binary size                ✅ 4.3MB (< 5MB budget)
+./target/release/rspeed    ✅ Backend: cloudflare
+./target/release/rspeed --server https://example.com  ✅ Backend: generic
+```
+
+### Reflection
+
+The test confirmed that tokio's paused-clock and real-I/O don't always compose cleanly: timers created during `advance` that fall inside the advance window fire immediately, which makes a two-timeout sequence (HTTP timeout → TCP timeout) hard to avoid. The spec anticipated paused time for this test, but real time is the right call here — both more readable and more reliable across OS/network variance. Future paused-clock probes should ensure no chained 1s timers overlap with the advance duration.
