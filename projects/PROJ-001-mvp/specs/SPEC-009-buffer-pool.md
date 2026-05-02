@@ -38,10 +38,18 @@ cost:
       tokens_output: null
       estimated_usd: null
       note: "Spec authoring + Frame critique in single Sonnet session"
+    - cycle: build
+      date: 2026-05-02
+      agent: claude-sonnet-4-6
+      interface: claude-code
+      tokens_input: 1643627
+      tokens_output: 11925
+      estimated_usd: 1.3534
+      note: "Buffer pool implementation"
   totals:
     tokens_total: null
     estimated_usd: null
-    session_count: 0
+    session_count: 2
 ---
 
 # SPEC-009: Buffer pool implementation
