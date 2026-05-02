@@ -2,7 +2,7 @@
 task:
   id: SPEC-009
   type: story
-  cycle: verify
+  cycle: ship
   blocked: false
   priority: high
   complexity: S
@@ -46,10 +46,18 @@ cost:
       tokens_output: 11925
       estimated_usd: 1.3534
       note: "Buffer pool implementation"
+    - cycle: verify
+      date: 2026-05-02
+      agent: claude-sonnet-4-6
+      interface: claude-code
+      tokens_input: 809300
+      tokens_output: 8074
+      estimated_usd: 0.9004
+      note: "Buffer pool verification"
   totals:
-    tokens_total: null
-    estimated_usd: null
-    session_count: 2
+    tokens_total: 2472926
+    estimated_usd: 2.2538
+    session_count: 3
 ---
 
 # SPEC-009: Buffer pool implementation
@@ -361,3 +369,61 @@ for `PooledBuffer` made the `Drop` impl straightforward — `take()` avoids the
 partial-move problem cleanly. Added `impl Clone for BufferPool` (Frame E)
 delegating to `Arc::clone`, enabling the `clone_shares_pool` test to verify
 shared state across handles. All 7 integration tests pass; clippy and fmt clean.
+
+## Verification Results
+
+**Date:** 2026-05-02
+**Agent:** claude-sonnet-4-6
+**Cycle:** verify
+
+### Checklist
+
+| Check | Result |
+|---|---|
+| AC-1: pre-allocates in `new()` | ✅ |
+| AC-2: `acquire()` returns `None` when empty | ✅ |
+| AC-3: `DerefMut<Target = BytesMut>` | ✅ |
+| AC-4: buffer returns on drop, cleared | ✅ |
+| AC-5: `available()` reflects live state | ✅ |
+| AC-6: only two documented unwrap sites | ✅ |
+| AC-7: clippy + fmt clean | ✅ |
+| AC-8: no new top-level deps | ✅ |
+| AC-9: clone shares pool | ✅ |
+| Frame A: types `pub`; module `pub mod`; no re-export | ✅ |
+| Frame B: `#![allow(clippy::unwrap_used)]` + invariant comment | ✅ |
+| Frame D: AC-6 enumerates both allowed unwrap sites | ✅ |
+| Frame E: `impl Clone` + `clone_shares_pool` test | ✅ |
+| `Drop` calls `buf.clear()` before push | ✅ |
+| `new()` pre-allocates all buffers (no lazy alloc) | ✅ |
+| `DEFAULT_CAPACITY == 8`, `DEFAULT_BUF_SIZE == 262144` | ✅ |
+| 7 required tests present and named correctly | ✅ |
+| `cargo test --all-targets` — all pass | ✅ (60 tests total) |
+| Test file opens with `#![allow(...)]` | ✅ |
+| `cargo clippy --all-targets -- -D warnings` — clean | ✅ |
+| `cargo fmt --check` — clean | ✅ |
+| `Cargo.toml [dependencies]` unchanged | ✅ |
+| No unwrap/expect/panic outside documented exceptions | ✅ |
+| No re-export from `lib.rs` top-level | ✅ |
+| Standalone — no wiring into download/upload | ✅ |
+| No modifications to out-of-scope files | ✅ |
+
+### Verdict
+
+✅ APPROVED — all ACs met, all 7 tests pass, lints clean, no issues.
+
+## Reflection (Ship)
+
+**What went well or was easier than expected?**
+
+The `Option<BytesMut>` inner field pattern for `PooledBuffer` was exactly the right choice — it made the `Drop` impl trivial (`take()` avoids partial-move entirely) and the Deref/DerefMut impls a one-liner each. The decision to use `std::sync::Mutex<Vec<BytesMut>>` instead of `crossbeam_queue` or `tokio::sync::Mutex` eliminated a dependency and kept the implementation in stdlib. The spec's Implementation Context was detailed enough that Build had no ambiguity about structure, making the cycle fast and clean.
+
+**What was harder, surprising, or required a Frame correction?**
+
+The visibility mismatch was the key design correction the spec had to document (Frame A): `pub(crate)` cannot be accessed from integration tests in `tests/`, which live in a separate crate. The resolution — make types `pub` in `buffer_pool.rs` but omit them from `lib.rs`'s `pub use` block — keeps them off the documented API surface while remaining reachable from `tests/`. This same pattern was already established by SPEC-008 (`rspeed::backend::latency`), so no new convention was needed. The Frame critique also added `impl Clone for BufferPool` (not in the original AC list), which SPEC-010/011 will need to clone the pool handle into async tasks — a genuine omission caught early.
+
+**What should SPEC-010/011 know about the buffer pool API?**
+
+- **`acquire()` is non-blocking and returns `None` immediately if the pool is exhausted.** Callers must handle the `None` case — the design intent is to back-pressure or fall back to a smaller read, not to block waiting for a buffer. SPEC-010/011 should decide their exhaustion strategy before implementing.
+- **`clone()` shares the same underlying pool.** Clone the `BufferPool` once per task/connection at startup; each clone draws from and returns to the same `Arc<Mutex<Vec<BytesMut>>>`. Do not call `BufferPool::new()` multiple times — that creates independent pools and defeats the budget.
+- **The buffer comes back with `len() == 0` but `capacity() >= DEFAULT_BUF_SIZE`.** Callers can pass it directly to `AsyncReadExt::read_buf` without any setup. Do not call `clear()` before use — it's already been cleared on return.
+- **Do not hold a `PooledBuffer` across an `.await` if it can be avoided.** The `Mutex` inside is a `std::sync::Mutex` (not async-aware). Holding the lock across an await point is not a concern (the lock is only held during `acquire`/`drop`, not while the buffer is in use), but holding the `PooledBuffer` itself across a long await ties up a pool slot for the duration. Drop it as soon as the data is consumed.
