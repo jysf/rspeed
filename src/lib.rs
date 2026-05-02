@@ -3,6 +3,7 @@
 use clap::Parser;
 
 pub mod backend;
+pub mod buffer_pool;
 mod cli;
 pub mod config;
 pub mod metrics;
