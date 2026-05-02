@@ -54,10 +54,18 @@ cost:
       tokens_output: 8074
       estimated_usd: 0.9004
       note: "Buffer pool verification"
+    - cycle: ship
+      date: 2026-05-02
+      agent: claude-sonnet-4-6
+      interface: claude-code
+      tokens_input: 4230244
+      tokens_output: 28883
+      estimated_usd: 2.8443
+      note: "Buffer pool ship: merge, archive, stage backlog"
   totals:
-    tokens_total: 2472926
-    estimated_usd: 2.2538
-    session_count: 3
+    tokens_total: 6732053
+    estimated_usd: 5.0981
+    session_count: 4
 ---
 
 # SPEC-009: Buffer pool implementation
