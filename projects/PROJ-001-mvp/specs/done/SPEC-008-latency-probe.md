@@ -2,7 +2,7 @@
 task:
   id: SPEC-008
   type: story
-  cycle: verify
+  cycle: ship
   blocked: false
   priority: high
   complexity: M
@@ -42,14 +42,30 @@ cost:
       date: 2026-04-29
       agent: claude-sonnet-4-6
       interface: claude-code
+      tokens_input: 7400
+      tokens_output: 65600
+      estimated_usd: 3.21
+      note: "Build session — all 8 Frame outcomes applied; 9 new latency tests + 34 prior all pass; tokens backfilled via just record-cost"
+    - cycle: verify
+      date: 2026-05-01
+      agent: claude-opus-4-7
+      interface: claude-code
+      tokens_input: 124
+      tokens_output: 14100
+      estimated_usd: 1.84
+      note: "Verify cycle — APPROVED. 13/13 ACs verified, fallibility cascade clean, DEC-003 refinement captured, paused-clock deviation rationale sound, CI green 3 OSes; PR #10 promoted draft → ready"
+    - cycle: ship
+      date: 2026-05-01
+      agent: claude-sonnet-4-6
+      interface: claude-code
       tokens_input: null
       tokens_output: null
       estimated_usd: null
-      note: "Build session — all 8 Frame outcomes applied; 9 new latency tests + 34 prior all pass; tokens backfilled via just record-cost"
+      note: "Ship cycle — reflection, bookkeeping, archive. Tokens pending just record-cost."
   totals:
     tokens_total: null
     estimated_usd: null
-    session_count: 2
+    session_count: 4
 ---
 
 # SPEC-008: Latency probe with HTTP RTT and TCP fallback
@@ -926,3 +942,11 @@ binary size                ✅ 4.3MB (< 5MB budget)
 ### Reflection
 
 The test confirmed that tokio's paused-clock and real-I/O don't always compose cleanly: timers created during `advance` that fall inside the advance window fire immediately, which makes a two-timeout sequence (HTTP timeout → TCP timeout) hard to avoid. The spec anticipated paused time for this test, but real time is the right call here — both more readable and more reliable across OS/network variance. Future paused-clock probes should ensure no chained 1s timers overlap with the advance duration.
+
+## Reflection
+
+**1. Trait shape evolution (`Vec<Duration>` → `LatencyProbeOutcome`).** Bundling `method` and raw `samples` in a single struct was the right call. SPEC-005's "provisional" caveat absorbed the breaking change cleanly; updating DEC-003 inline (rather than opening a new DEC) kept the record localized and scoped. Future STAGE-002 specs should check for provisional-caveat annotations in prior specs — they signal expected refactors that can land inline rather than via new decisions.
+
+**2. Fallibility cascade (A-1) was worth every line.** Dropping `Default` from `CloudflareBackend`, making both constructors return `Result<Self, BackendError>`, and propagating via `?` in `select()` and `lib::run()` touched only ~5 lines total. The gain was real: TLS init failure now surfaces as a structured error rather than a panic. The cascade also made `select()` honest about its fallibility — useful context for every STAGE-002 spec that calls it.
+
+**3. SPEC-009 buffer pool is the natural next.** It is self-contained (no live networking), both SPEC-010 and SPEC-011 depend on it, and DEC-005 already defines the shape. Starting immediately keeps STAGE-002 unblocked.

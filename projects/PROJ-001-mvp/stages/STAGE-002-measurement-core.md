@@ -84,14 +84,14 @@ Roughly 24 hours of focused work, padded for cycle overhead.
 ## Spec Backlog
 
 - [x] SPEC-007 (shipped 2026-04-28) — `MetricsAccumulator` and result types
-- [~] SPEC-008 (design 2026-04-29) — Latency probe with HTTP RTT and TCP fallback
+- [x] SPEC-008 (shipped 2026-05-01) — Latency probe with HTTP RTT and TCP fallback
 - [ ] (not yet written) — Buffer pool implementation
 - [ ] (not yet written) — Cloudflare backend: real download/upload
 - [ ] (not yet written) — Generic HTTP backend: real download/upload
 - [ ] (not yet written) — Test orchestrator + headless JSON output
 - [ ] (not yet written) — Failure mode tests
 
-**Count:** 1 shipped / 1 active / 5 pending
+**Count:** 2 shipped / 0 active / 5 pending
 
 ## Critical invariants this stage establishes
 
