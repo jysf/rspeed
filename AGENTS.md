@@ -77,19 +77,20 @@ Every cycle on a spec appends a session entry to the spec's
 `cost.sessions` list. Agents self-report so reports can aggregate AI
 spend over time.
 
-- **Claude Code:** the AI session writes a `cost.sessions` entry with
-  null token fields during the cycle. After the session ends, the
-  user runs `/cost` and backfills the numbers via:
-  ```bash
-  just record-cost SPEC-NNN cycle --tokens-input N --tokens-output N --usd N.NN
-  ```
-  The helper updates the most recent matching-cycle entry that has
-  null tokens, converts the legacy `tokens_total: null` shorthand to
-  canonical `tokens_input` + `tokens_output` (which `scripts/_lib.sh`
-  aggregates), and recomputes `cost.totals`. Skipping the backfill is
-  acceptable — null-numeric entries are honored throughout the
-  reporting pipeline; the value then comes from `session_count` and
-  `agent` fields rather than aggregated token counts.
+- **Claude Code (autopilot):** at session end, run
+  `just session-cost SPEC-NNN cycle --apply`. The helper reads the
+  current session's transcript, sums all token types (regular input,
+  cache reads, cache writes 5m/1h, output) with model-aware pricing,
+  and invokes `record-cost` to update the spec. No manual `/cost`
+  copy/paste. See `scripts/session-cost.py`.
+- **Claude Code (manual):** if `/cost` numbers come from elsewhere
+  (e.g., reading a `/cost` summary in another tool), run
+  `just record-cost SPEC-NNN cycle --tokens-input N --tokens-output N --usd N.NN`
+  directly. The helper updates the most recent matching-cycle entry
+  that has null tokens, converts the legacy `tokens_total: null`
+  shorthand to canonical `tokens_input` + `tokens_output` (which
+  `scripts/_lib.sh` aggregates), and recomputes `cost.totals`.
+  See `scripts/record-cost.py`.
 - **API calls:** use the `usage` object in the API response. The
   `record-cost` helper accepts the same flags.
 - **Claude.ai web:** estimate based on session length. Set
@@ -97,6 +98,10 @@ spend over time.
 - **Third-party agents** (Ollama, Kilo, Factory, etc.): use whatever
   cost mechanism the agent provides. If none, enter null numeric
   values with a note.
+
+Skipping the backfill is acceptable — null-numeric entries are honored
+throughout the reporting pipeline; the value then comes from
+`session_count` and `agent` fields rather than aggregated token counts.
 
 Verify cycle flags specs missing cost entries for prior cycles (does
 not block the PR — visibility only). Ship cycle computes `cost.totals`
@@ -108,8 +113,7 @@ Reports aggregate cost by cycle, by interface, by spec, and by stage.
 STAGE-001 were written before the `just record-cost` helper existed and
 all carry `tokens_total: null`. Backfilling them retroactively isn't
 useful (the original `/cost` numbers are gone). Going forward, run
-`just record-cost` at the end of each session — the helper's per-spec
-view confirms what landed.
+`just session-cost` at the end of each session — no copy/paste required.
 
 ---
 
@@ -305,29 +309,28 @@ DECs are stable; specs come and go. DECs don't reciprocally list specs.
 
 Every cycle session — Frame, Design, Build, Verify, Ship — must end
 its final response with a cost-capture reminder block, pre-filled
-with the active spec ID and the cycle just completed. The AI session
-can't read its own `/cost` (slash commands are user-facing), so this
-reminder is the load-bearing mechanism for getting cost numbers into
-`cost.sessions`:
+with the active spec ID and the cycle just completed:
 
 ```
-Cost capture — run `/cost` in this session, then paste:
-just record-cost SPEC-NNN <cycle> --tokens-input <N> --tokens-output <N> --usd <N.NN>
+Cost capture — when work is done, run:
+just session-cost SPEC-NNN <cycle> --apply
 ```
 
 Discipline:
 
 - Substitute `SPEC-NNN` with the active spec id and `<cycle>` with
   the literal cycle name (`frame` / `design` / `build` / `verify` /
-  `ship`). Leave the three `<N>` placeholders for the user to fill
-  in from `/cost`.
+  `ship`).
 - Output the reminder as the **last** thing in the response, after
   the work summary and any commit/push notes. Don't bury it in the
   middle.
+- `session-cost --apply` reads the current transcript, sums token
+  types with model-aware pricing, and calls `record-cost` automatically.
+  No `/cost` copy/paste required.
 - This applies even on punch-list, cascade, or follow-up cycles —
   any session that touched the spec's content earns a `cost.sessions`
-  entry, so any session needs a cost-capture reminder at the end.
-- See §4 for the helper's full schema notes and `scripts/record-cost.py`.
+  entry.
+- See §4 for the full schema notes and `scripts/session-cost.py`.
 
 ### During **build**
 

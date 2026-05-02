@@ -86,6 +86,16 @@ questions:
       complexity for marginal benefit; revisit if manual backfill friction
       becomes a real problem.
 
+      Option B (autopilot) is now also delivered via `scripts/session-cost.py`
+      (`just session-cost SPEC-NNN cycle --apply`). The helper reads the most
+      recent Claude Code transcript JSONL, sums per-model token types (regular
+      input, cache reads, cache writes 5m/1h, output) using model-aware pricing,
+      and invokes record-cost automatically — no /cost copy/paste required.
+      The manual `record-cost` path remains as a fallback for non-Claude-Code
+      agents (API calls, Claude.ai web, third-party tools) where transcript
+      parsing is not applicable. This fully resolves the copy/paste friction
+      that motivated the original Option B deferral.
+
   - id: throughput-warmup-duration
     question: "Is 2 seconds the right throughput warm-up window, or should it be auto-detected from CWND saturation?"
     priority: low
