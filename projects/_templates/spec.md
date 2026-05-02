@@ -39,7 +39,47 @@ value_link: null
 # skip them in sums but count them in session_count. Examples of
 # interface: claude-code | claude-ai | api | ollama | other.
 cost:
-  sessions: []
+  sessions:
+    - cycle: frame
+      date: __TODAY__
+      agent: __AGENT__
+      interface: __INTERFACE__
+      tokens_input: null
+      tokens_output: null
+      estimated_usd: null
+      note: ""
+    - cycle: design
+      date: __TODAY__
+      agent: __AGENT__
+      interface: __INTERFACE__
+      tokens_input: null
+      tokens_output: null
+      estimated_usd: null
+      note: ""
+    - cycle: build
+      date: __TODAY__
+      agent: __AGENT__
+      interface: __INTERFACE__
+      tokens_input: null
+      tokens_output: null
+      estimated_usd: null
+      note: ""
+    - cycle: verify
+      date: __TODAY__
+      agent: __AGENT__
+      interface: __INTERFACE__
+      tokens_input: null
+      tokens_output: null
+      estimated_usd: null
+      note: ""
+    - cycle: ship
+      date: __TODAY__
+      agent: __AGENT__
+      interface: __INTERFACE__
+      tokens_input: null
+      tokens_output: null
+      estimated_usd: null
+      note: ""
   totals:
     tokens_total: 0
     estimated_usd: 0
