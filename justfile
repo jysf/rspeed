@@ -132,6 +132,14 @@ roadmap:
 record-cost SPEC_ID CYCLE *FLAGS:
     @python3 ./scripts/record-cost.py "{{SPEC_ID}}" "{{CYCLE}}" {{FLAGS}}
 
+# Autopilot cost capture: read most recent Claude Code transcript and
+# (optionally) run record-cost. Usage:
+#   just session-cost                         # show breakdown only
+#   just session-cost SPEC-NNN cycle          # show + suggest record-cost
+#   just session-cost SPEC-NNN cycle --apply  # parse + run record-cost
+session-cost *FLAGS:
+    @python3 ./scripts/session-cost.py {{FLAGS}}
+
 # ----------------------------------------------------------------------------
 # HELPERS
 # ----------------------------------------------------------------------------
