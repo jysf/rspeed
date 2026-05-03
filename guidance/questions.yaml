@@ -137,7 +137,33 @@ questions:
       normalize? Url::join replaces the last path segment if no trailing
       slash, which silently breaks user-supplied base URLs with a path
       component (e.g. http://server/api/)."
-    severity: warning
+    priority: medium
+    status: answered
     raised_at: 2026-05-02
     raised_by: SPEC-011 design (inherited from SPEC-008)
+    answered_at: 2026-05-03
+    assigned_to: null
     blocks: null
+    notes: |
+      Resolved by SPEC-012 via Config::validate(): rejects --server URLs
+      whose path() does not end with '/'. Pinned by
+      config_validate_rejects_server_without_trailing_slash test. The
+      "normalize silently" alternative was rejected because it would mask
+      the user's typo (http://server/api vs http://server/api/) — better
+      to fail loudly at CLI parse time than to silently strip a path
+      segment from the user-supplied base.
+
+  - id: human-format-json-fallback-cleanup
+    question: "Remove SPEC-012's Human-format JSON fall-back when STAGE-003 ships the human renderer."
+    priority: low
+    status: open
+    raised_by: SPEC-012 design
+    raised_at: 2026-05-03
+    assigned_to: null
+    blocks: STAGE-003
+    notes: |
+      SPEC-012 falls back to JSON output for --format human with a
+      one-line stderr warning (AC-9). STAGE-003's human renderer
+      replaces this branch. Verify that the eprintln! and the
+      JSON-fallback block in lib::run()'s match arm are removed when
+      the renderer ships.

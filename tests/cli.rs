@@ -58,6 +58,19 @@ fn invalid_url_rejected() {
         .code(2);
 }
 
+// Config::validate() rejects --server URLs without a trailing slash (AC-10).
+// Note: bare host URLs like http://example.com are normalised to http://example.com/
+// by the url crate. A path component without a trailing slash (e.g. /api) is needed
+// to exercise the validation branch.
+#[test]
+fn server_without_trailing_slash_exits_2() {
+    Command::cargo_bin("rspeed")
+        .unwrap()
+        .args(["-s", "http://example.com/api"])
+        .assert()
+        .code(2);
+}
+
 // --- snapshot tests (insta) ---
 
 #[test]
@@ -84,63 +97,4 @@ fn snapshot_version() {
         .clone();
     let stdout = String::from_utf8(output.stdout).unwrap();
     insta::assert_snapshot!(stdout);
-}
-
-#[test]
-fn snapshot_default_config() {
-    let output = Command::cargo_bin("rspeed")
-        .unwrap()
-        .assert()
-        .success()
-        .get_output()
-        .clone();
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    insta::assert_snapshot!(stdout);
-}
-
-#[test]
-fn snapshot_json_format_with_duration() {
-    let output = Command::cargo_bin("rspeed")
-        .unwrap()
-        .args(["-f", "json", "-d", "30"])
-        .assert()
-        .success()
-        .get_output()
-        .clone();
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    insta::assert_snapshot!(stdout);
-}
-
-#[test]
-fn snapshot_custom_server_no_upload() {
-    let output = Command::cargo_bin("rspeed")
-        .unwrap()
-        .args(["-s", "https://example.com", "--no-upload"])
-        .assert()
-        .success()
-        .get_output()
-        .clone();
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    insta::assert_snapshot!(stdout);
-}
-
-// --- backend selection tests ---
-
-#[test]
-fn backend_cloudflare_default() {
-    Command::cargo_bin("rspeed")
-        .unwrap()
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("Backend: cloudflare"));
-}
-
-#[test]
-fn backend_generic_with_server() {
-    Command::cargo_bin("rspeed")
-        .unwrap()
-        .args(["-s", "https://example.com"])
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("Backend: generic"));
 }

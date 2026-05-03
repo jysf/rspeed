@@ -32,6 +32,38 @@ pub enum IpVersion {
     V6,
 }
 
+impl Config {
+    pub fn validate(&self) -> Result<(), crate::error::TestError> {
+        if let Some(url) = &self.server
+            && !url.path().ends_with('/')
+        {
+            return Err(crate::error::TestError::Config(format!(
+                "--server URL must end with a trailing slash (got: {url})"
+            )));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn server_url_string(&self) -> String {
+        self.server
+            .as_ref()
+            .map(|u| u.to_string())
+            .unwrap_or_else(|| "https://speed.cloudflare.com/".to_string())
+    }
+
+    /// Reflects user *intent*, not observed wire behaviour.
+    /// STAGE-004 may refine this via reqwest::local_addr() to
+    /// report the family actually used by the connection pool.
+    pub(crate) fn ip_version_string(&self) -> String {
+        match self.ip_version {
+            IpVersion::Auto => "auto",
+            IpVersion::V4 => "ipv4",
+            IpVersion::V6 => "ipv6",
+        }
+        .to_string()
+    }
+}
+
 impl From<cli::Cli> for Config {
     fn from(c: cli::Cli) -> Self {
         let ip_version = match (c.ipv4, c.ipv6) {

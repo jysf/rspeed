@@ -12,7 +12,7 @@ use std::time::Duration;
 use axum::{
     Json, Router,
     body::Body,
-    extract::{Query, State},
+    extract::{DefaultBodyLimit, Query, State},
     http::{StatusCode, header},
     response::{IntoResponse, Response},
     routing::{get, post},
@@ -97,11 +97,14 @@ impl MockServer {
             upload_status: opts.upload_status,
         };
 
+        // Allow bodies up to 64MB so 10MB upload tests (DEFAULT_UPLOAD_BYTES_PER_REQUEST)
+        // don't hit Axum's 2MB default limit and return 413.
         let app = Router::new()
             .route("/health", get(health))
             .route("/ping", get(ping_handler))
             .route("/download", get(download))
             .route("/upload", post(upload))
+            .layer(DefaultBodyLimit::max(64 * 1024 * 1024))
             .with_state(state);
 
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

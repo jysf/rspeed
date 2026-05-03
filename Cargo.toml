@@ -26,13 +26,13 @@ thiserror    = "2"
 async-trait  = "0.1"
 serde        = { version = "1", features = ["derive"] }
 chrono       = { version = "0.4", features = ["serde"] }
+serde_json   = "1"   # promoted from dev-deps in SPEC-012: lib::run() writes JSON at runtime
 
 [dev-dependencies]
 assert_cmd  = "2"
 predicates  = "3"
 insta       = "1"
 axum        = "0.8"
-serde_json  = "1"
 tokio       = { version = "1", features = ["test-util"] }   # paused-clock helpers; dev-only
 
 [lints.rust]
