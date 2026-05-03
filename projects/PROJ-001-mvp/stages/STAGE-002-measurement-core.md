@@ -88,10 +88,12 @@ Roughly 24 hours of focused work, padded for cycle overhead.
 - [x] SPEC-009 (shipped 2026-05-02, PR #12) — Buffer pool implementation
 - [x] SPEC-010 (shipped 2026-05-03, PR #13) — Cloudflare backend: real download/upload
 - [x] SPEC-011 (shipped 2026-05-02, PR #14) — Generic HTTP backend: real download/upload
-- [~] SPEC-012 (in design 2026-05-03) — Test orchestrator + headless JSON output
+- [x] SPEC-012 (shipped 2026-05-03, PR #17) — Test orchestrator + headless JSON output
 - [ ] SPEC-013 (not yet written) — Failure mode tests
 
-**Count:** 5 shipped / 1 active / 1 pending
+**Count:** 6 shipped / 0 active / 1 pending
+
+> **STAGE-002 is one spec away from complete.** SPEC-013 (failure-mode tests) is the last remaining spec. When it ships, STAGE-002 closes and STAGE-003 (output & UX) can begin.
 
 ## Critical invariants this stage establishes
 

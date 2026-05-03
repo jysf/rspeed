@@ -9,9 +9,9 @@ Cycle prompts live in `prompts/SPEC-012-<cycle>.md`.
 |---|---|---|---|
 | 1 | design | [x] | Spec authored 2026-05-03 (claude-opus-4-7); Frame critique in same session — see `## Frame critique (2026-05-03)` in spec body. Architect resolved (A-2) + (B-1) inline; spec body amended same day. 5 mechanical patches (C–G) folded into Build prompt. |
 | 2 | frame  | [x] | Frame critique inline (see spec body); GO. Architect approved A-2 (bind + abort forwarder/ticker handles at end-of-phase) + B-1 (`pub fn with_intervals` extension constructor). Patch (F) added a 5th `TestError::Backend(_)` variant for backend-init failures. |
-| 3 | build  | [ ] | |
-| 4 | verify | [ ] | |
-| 5 | ship   | [ ] | |
+| 3 | build  | [x] | Built 2026-05-03 (claude-sonnet-4-6): all 17 ACs met, 72 tests, 3 deviations (Axum body-limit, cli.rs stub removal, URL normalization) |
+| 4 | verify | [x] | Verified 2026-05-03 (claude-sonnet-4-6): APPROVED, all 17 ACs evidenced, 72/72 tests pass, CI green (3 runners) |
+| 5 | ship   | [x] | Shipped 2026-05-03 (PR #17, squash merge to main) |
 
 ## Cycle Log
 

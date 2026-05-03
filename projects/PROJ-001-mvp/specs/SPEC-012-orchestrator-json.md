@@ -2,7 +2,7 @@
 task:
   id: SPEC-012
   type: story
-  cycle: verify
+  cycle: ship
   blocked: false
   priority: high
   complexity: L
@@ -46,10 +46,18 @@ cost:
       tokens_output: 79531
       estimated_usd: 6.165
       note: "Build cycle: orchestrator, error, config, lib rewrite, 9 integration tests"
+    - cycle: verify
+      date: 2026-05-03
+      agent: claude-sonnet-4-6
+      interface: claude-code
+      tokens_input: 3880790
+      tokens_output: 39204
+      estimated_usd: 3.7793
+      note: "Verify cycle: full AC walkthrough, regression run, design integrity checks"
   totals:
-    tokens_total: null
-    estimated_usd: null
-    session_count: 2
+    tokens_total: 13951136
+    estimated_usd: 9.9443
+    session_count: 3
 ---
 
 # SPEC-012: Test orchestrator + headless JSON output
@@ -1461,6 +1469,7 @@ the Format::Human STAGE-003 placeholder.
 - **Branch:** `feat/spec-012-orchestrator`
 - **PR (if applicable):** #17
 - **All acceptance criteria met?** Yes — see per-AC notes below.
+- **Test count:** 72 (66 prior + 11 new − 5 stub removals in `tests/cli.rs`; build prompt stated 81 by omitting the stub deletions).
 - **New decisions emitted:** none
 - **Deviations from spec:**
   1. **`tests/common/mod.rs` modified** (spec said "do not extend it"). Axum's default 2MB body limit caused HTTP 413 on 10MB `DEFAULT_UPLOAD_BYTES_PER_REQUEST` uploads. Fix: added `DefaultBodyLimit::max(64MB)` as an Axum layer internally — no new public API methods added. This is an internal fix the spec didn't anticipate, not a semantic extension.
@@ -1506,8 +1515,38 @@ the Format::Human STAGE-003 placeholder.
 
 ## Reflection (Ship)
 
-*Appended during the **ship** cycle.*
+*Appended 2026-05-03 during the **ship** cycle.*
 
-1. **What would I do differently next time?**
-2. **Does any template, constraint, or decision need updating?**
-3. **Is there a follow-up spec I should write now before I forget?**
+### 1. What went well or was easier than expected?
+
+The per-phase accumulator + abort pattern (A-2) delivered exactly the clean phase boundary we hoped for. `JoinHandle::abort()` is idempotent on already-exited tasks, so the end-of-phase cleanup is a no-op on the happy path and a real safeguard on the error path — no special-case branching needed. The pattern scales directly to SPEC-013's failure tests: the orchestrator already aborts correctly when a phase returns `Err(...)`.
+
+`with_intervals` (B-1) was definitively worth the public-API expansion. Without it, every integration test would burn 2s of warmup per phase — 4+ seconds per full-orchestrator test. Zeroing the warmup in tests kept the CI suite under 3s per test while production defaults stayed untouched. Future bench tools will use the same knob.
+
+Having SPEC-011 complete the `GenericHttpBackend` trait surface before this spec was the right sequencing call: all 9 orchestrator tests drove `GenericHttpBackend` against `MockServer` without any conditional logic. The testability win SPEC-011 promised materialised exactly.
+
+### 2. What was harder, surprising, or required correction?
+
+**Axum 2MB body limit.** `tests/common/mod.rs` needed `DefaultBodyLimit::max(64MB)` — the spec anticipated upload might return 0 bytes (phase timeout) but not 413 (server rejection). For SPEC-013: the same mock body-limit cap is already in place; large-body upload error tests won't hit 413 as long as test payloads stay under 64MB.
+
+**URL crate normalization.** `url::Url` silently appends a trailing slash to bare-host URLs (`http://example.com` → `http://example.com/`), so the spec's example validation test fixture was wrong. Tests use `http://example.com/api` (explicit path without slash) to exercise the rejection branch. Worth noting in the project constraints doc: "bare-host URLs normalize to trailing-slash; use an explicit path component in validation test fixtures."
+
+**Test count discrepancy (81 vs 72).** The build prompt auto-generated "81 tests" by counting all pre-SPEC-012 tests plus all new tests without subtracting the 5 removed `cli.rs` stub tests. The Build Completion section now records 72 explicitly. For future Ship cycles: always include the net count (added − removed) in Build Completion, not just the added total.
+
+**`Format::Human` fall-back** was a one-liner but the stderr-capture testing gap (see AC note for skipped `orchestrator_run_emits_warning_to_stderr_on_human_format`) is real. `assert_cmd`-style CLI tests are the right surface for that; adding one to `tests/cli.rs` in SPEC-013 or STAGE-003 setup is the clean fix.
+
+No new DEC needed. The Axum body-limit fix and URL normalization quirk are documented here and in the spec deviations; they don't represent design decisions, just implementation gotchas.
+
+### 3. What should SPEC-013 know?
+
+SPEC-013 is the failure-mode tests spec (timeout, reset, malformed responses) and the last STAGE-002 spec. Several things to carry forward:
+
+- **Use `TestSession::run()` end-to-end.** SPEC-013 tests must drive the orchestrator via `TestSession::run()`, not bypass it by calling `backend.download()` directly. The orchestrator is the canonical surface; `tests/orchestrator.rs` from this spec is the template to extend.
+
+- **HTTP/2 stall risk** is still open in `guidance/questions.yaml` from SPEC-010 Frame A. SPEC-013 is the last chance before STAGE-003 to decide whether to investigate now (add a stall-detection test against a mock that never closes the response body) or defer to STAGE-004 explicitly. Recommendation: write one regression-guard test that asserts `TestError::Download` (timeout-class) within a bounded wall-clock budget when the server stalls; that gives CI coverage without a full investigation.
+
+- **Mock body-limit gotcha.** `tests/common/mod.rs` has been patched to allow 64MB bodies. SPEC-013 upload-error tests that send large bodies are safe up to that limit. Tests using small error-trigger payloads (e.g., a 1-byte body that the server closes prematurely) are unaffected.
+
+- **`Config::validate()` runs before the orchestrator.** URL parsing failures (`--server` without trailing slash) are caught at `config.validate()` and return exit code 2 before `TestSession::new()` is ever called. SPEC-013 timeout and reset tests don't need to account for URL-validation errors — those are a separate, earlier failure mode.
+
+- **`live` cargo feature** is the right home for any tests that hit Cloudflare's real network for failure-mode validation (e.g., actual timeout against a slow endpoint). In-CI tests must stay against `MockServer` behind the `#[cfg(not(feature = "live"))]` guard. SPEC-013 can write both variants for any scenario that benefits from live validation.
