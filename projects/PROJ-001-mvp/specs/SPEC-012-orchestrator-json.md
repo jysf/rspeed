@@ -1451,7 +1451,7 @@ the Format::Human STAGE-003 placeholder.
 ## Build Completion
 
 - **Branch:** `feat/spec-012-orchestrator`
-- **PR (if applicable):** opened against `main` (see PR body)
+- **PR (if applicable):** #17
 - **All acceptance criteria met?** Yes — see per-AC notes below.
 - **New decisions emitted:** none
 - **Deviations from spec:**
