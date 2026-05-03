@@ -2,7 +2,7 @@
 task:
   id: SPEC-011
   type: story
-  cycle: design
+  cycle: verify
   blocked: false
   priority: high
   complexity: S
@@ -34,9 +34,9 @@ cost:
       date: 2026-05-02
       agent: claude-sonnet-4-6
       interface: claude-code
-      tokens_input: null
-      tokens_output: null
-      estimated_usd: null
+      tokens_input: 3654552
+      tokens_output: 73821
+      estimated_usd: 4.0047
       note: "Spec authoring + Frame critique in single Sonnet session"
     - cycle: build
       date: null
@@ -63,9 +63,9 @@ cost:
       estimated_usd: null
       note: ""
   totals:
-    tokens_total: 0
-    estimated_usd: 0
-    session_count: 0
+    tokens_total: 3728373
+    estimated_usd: 4.0047
+    session_count: 4
 ---
 
 # SPEC-011: Generic HTTP backend — real download/upload
@@ -98,8 +98,8 @@ reqwest streaming path).
 
 Wire `GenericHttpBackend::download()` and `::upload()` by extracting
 the parallel-dispatch logic from `CloudflareBackend` into two new
-`throughput.rs` helpers (`throughput::download` and
-`throughput::upload`), reducing both backends to one-liner delegations
+`throughput.rs` helpers (`throughput::download_parallel` and
+`throughput::upload_parallel`), reducing both backends to one-liner delegations
 and eliminating ~30 lines of duplication. Add trait-level integration
 tests in `tests/generic_backend.rs`.
 
@@ -119,6 +119,10 @@ No `Backend` trait signature changes. No new top-level dependencies.
   `DownloadStream`
 - **`tests/common/mod.rs`** — `MockServer` already has `download_count()`,
   `upload_count()`, `download_status`, `upload_status`; no extensions needed
+- **`tests/throughput.rs`** — SPEC-010's 9 tests. **Invariant:** SPEC-011 must
+  not require any modification to this file. The `CloudflareBackend` refactor
+  (download/upload bodies become one-line delegations) preserves all behavior;
+  the SPEC-010 test suite is the regression net for the extraction
 - **`decisions/DEC-003-backend-abstraction.md`** — Generic protocol contract:
   `GET {base}/download?bytes=N`, `POST {base}/upload`
 - **`decisions/DEC-002-http-client.md`** — `reqwest` config
@@ -133,21 +137,21 @@ No `Backend` trait signature changes. No new top-level dependencies.
   - `src/backend/throughput.rs`:
     - Add `pub fn build_download_url(base: &Url, bytes: u64) -> Result<Url, BackendError>`
       (moved from `CloudflareBackend`; no behavior change)
-    - Add `pub async fn download(client: &Client, download_base_url: &Url, opts: &DownloadOpts) -> Result<DownloadStream, BackendError>`
+    - Add `pub async fn download_parallel(client: &Client, download_base_url: &Url, opts: &DownloadOpts) -> Result<DownloadStream, BackendError>`
       (parallel orchestration extracted from `CloudflareBackend::download`)
-    - Add `pub async fn upload(client: &Client, upload_url: &Url, opts: &UploadOpts) -> Result<UploadResult, BackendError>`
+    - Add `pub async fn upload_parallel(client: &Client, upload_url: &Url, opts: &UploadOpts) -> Result<UploadResult, BackendError>`
       (parallel orchestration extracted from `CloudflareBackend::upload`)
     - All three additions are `pub` (same visibility as `download_one` / `upload_one`)
   - `src/backend/cloudflare.rs`:
-    - Replace `download()` body with `throughput::download(&self.client, &self.download_base_url, opts).await`
-    - Replace `upload()` body with `throughput::upload(&self.client, &self.upload_url, opts).await`
+    - Replace `download()` body with `throughput::download_parallel(&self.client, &self.download_base_url, opts).await`
+    - Replace `upload()` body with `throughput::upload_parallel(&self.client, &self.upload_url, opts).await`
     - Remove `build_download_url` associated function (it moves to `throughput.rs`)
   - `src/backend/generic.rs`:
     - Add `download_base_url: Url` and `upload_url: Url` fields
     - Populate both in `new()` via `base_url.join("download")?` and `base_url.join("upload")?`
     - Add `throughput` to `use super::` imports
-    - Replace `download()` body with `throughput::download(&self.client, &self.download_base_url, opts).await`
-    - Replace `upload()` body with `throughput::upload(&self.client, &self.upload_url, opts).await`
+    - Replace `download()` body with `throughput::download_parallel(&self.client, &self.download_base_url, opts).await`
+    - Replace `upload()` body with `throughput::upload_parallel(&self.client, &self.upload_url, opts).await`
 
 - **`Cargo.toml`:** no changes. All needed types and functions are in
   deps already on the graph (`futures`, `bytes`, `reqwest`, `tokio`).
@@ -163,8 +167,8 @@ No `Backend` trait signature changes. No new top-level dependencies.
   append_pair("bytes", &bytes.to_string())`. `CloudflareBackend` calls
   it via `throughput::build_download_url(...)`.
 
-- [ ] **AC-2: `throughput::download` contains the parallel orchestration
-  logic.** Signature: `pub async fn download(client: &Client, download_base_url:
+- [ ] **AC-2: `throughput::download_parallel` contains the parallel orchestration
+  logic.** Signature: `pub async fn download_parallel(client: &Client, download_base_url:
   &Url, opts: &DownloadOpts) -> Result<DownloadStream, BackendError>`.
   Implementation: `connections == 0` guard (returns `Protocol` error);
   builds per-connection URLs via `build_download_url`; issues N futures
@@ -172,8 +176,8 @@ No `Backend` trait signature changes. No new top-level dependencies.
   `Box::pin(merged)`. Identical logic to the SPEC-010 `CloudflareBackend::
   download` body, parameterized over URL.
 
-- [ ] **AC-3: `throughput::upload` contains the parallel orchestration
-  logic.** Signature: `pub async fn upload(client: &Client, upload_url:
+- [ ] **AC-3: `throughput::upload_parallel` contains the parallel orchestration
+  logic.** Signature: `pub async fn upload_parallel(client: &Client, upload_url:
   &Url, opts: &UploadOpts) -> Result<UploadResult, BackendError>`.
   Implementation: `connections == 0` guard; single `Bytes` allocation,
   `clone()` per connection; `try_join_all`; wall-clock `elapsed` wraps
@@ -185,7 +189,7 @@ No `Backend` trait signature changes. No new top-level dependencies.
   `throughput`.** Both method bodies become single-expression delegations.
   All existing `tests/throughput.rs` tests pass without modification,
   including `connections_zero_returns_error` (which now goes through
-  `throughput::download`/`throughput::upload`).
+  `throughput::download_parallel`/`throughput::upload_parallel`).
 
 - [ ] **AC-5: `GenericHttpBackend` has `download_base_url` and
   `upload_url` fields.** Both are `Url`, constructed in `new()` via
@@ -204,8 +208,8 @@ No `Backend` trait signature changes. No new top-level dependencies.
   POST requests hit `upload` on `MockServer`. `UploadResult::bytes_sent
   == opts.bytes_per_request * n`. Verified by `mock.upload_count() == n`.
 
-- [ ] **AC-8: `connections == 0` guard lives in `throughput::download`
-  and `throughput::upload`, not in each backend.** Code inspection:
+- [ ] **AC-8: `connections == 0` guard lives in `throughput::download_parallel`
+  and `throughput::upload_parallel`, not in each backend.** Code inspection:
   `grep -n 'connections == 0' src/backend/throughput.rs` returns two
   matches (one per function); `grep -n 'connections == 0' src/backend/
   cloudflare.rs` and `...generic.rs` return zero matches.
@@ -229,6 +233,40 @@ No `Backend` trait signature changes. No new top-level dependencies.
 
 - [ ] **AC-13: All three CI runners.** macOS arm64, Linux x86_64, Windows
   x86_64.
+
+- [ ] **AC-14: Multi-connection helpers named `download_parallel` /
+  `upload_parallel`.** The two new public functions in `throughput.rs` are
+  named `download_parallel` and `upload_parallel` (not `download` / `upload`).
+  The `_parallel` suffix disambiguates from the trait methods `Backend::
+  download` / `Backend::upload` at call sites, since backend impls call the
+  helper from inside an `async fn download(...)` / `async fn upload(...)`
+  body — identical names would invite misreads three months later. Verified
+  by `grep -n 'fn download_parallel\|fn upload_parallel' src/backend/
+  throughput.rs` returning two matches.
+
+- [ ] **AC-15: `Url::join` trailing-slash gotcha logged in
+  `guidance/questions.yaml`.** SPEC-011's `GenericHttpBackend::new` uses
+  `base_url.join("download")` and `base_url.join("upload")`, which
+  silently replaces the last path segment if `base_url` lacks a trailing
+  slash (a user passing `--server http://server/api` would get requests
+  to `http://server/download`, not `http://server/api/download`). This is
+  inherited from SPEC-008's `ping_url` construction; SPEC-011 doesn't fix
+  it, but adds an entry to `guidance/questions.yaml` so the latent issue
+  is visible:
+
+  ```yaml
+  - id: generic-backend-base-url-trailing-slash
+    question: "Should --server URL require a trailing slash, or should we
+      normalize? Url::join replaces the last path segment if no trailing
+      slash, which silently breaks user-supplied base URLs with a path
+      component (e.g. http://server/api/)."
+    severity: warning
+    raised_at: 2026-05-02
+    raised_by: SPEC-011 design (inherited from SPEC-008)
+    blocks: null
+  ```
+
+  Resolution is deferred to STAGE-003 or a future polish spec.
 
 ## Failing Tests
 
@@ -306,8 +344,9 @@ use `unwrap()` since `Result<UploadResult, BackendError>` does implement
 
 ### `throughput.rs` additions
 
-The extracted `download` and `upload` helpers use the same logic as the
-current `CloudflareBackend` methods, parameterized over URL inputs:
+The extracted `download_parallel` and `upload_parallel` helpers use the
+same logic as the current `CloudflareBackend` methods, parameterized over
+URL inputs:
 
 ```rust
 pub fn build_download_url(base: &Url, bytes: u64) -> Result<Url, BackendError> {
@@ -316,7 +355,7 @@ pub fn build_download_url(base: &Url, bytes: u64) -> Result<Url, BackendError> {
     Ok(url)
 }
 
-pub async fn download(
+pub async fn download_parallel(
     client: &Client,
     download_base_url: &Url,
     opts: &DownloadOpts,
@@ -346,7 +385,7 @@ pub async fn download(
     Ok(Box::pin(futures::stream::select_all(pinned)))
 }
 
-pub async fn upload(
+pub async fn upload_parallel(
     client: &Client,
     upload_url: &Url,
     opts: &UploadOpts,
@@ -394,7 +433,7 @@ not currently imported in `throughput.rs`; `BoxStream` is needed for the
 
 ```rust
 async fn download(&self, opts: &DownloadOpts) -> Result<DownloadStream, BackendError> {
-    throughput::download(&self.client, &self.download_base_url, opts).await
+    throughput::download_parallel(&self.client, &self.download_base_url, opts).await
 }
 ```
 
@@ -402,12 +441,12 @@ async fn download(&self, opts: &DownloadOpts) -> Result<DownloadStream, BackendE
 
 ```rust
 async fn upload(&self, opts: &UploadOpts) -> Result<UploadResult, BackendError> {
-    throughput::upload(&self.client, &self.upload_url, opts).await
+    throughput::upload_parallel(&self.client, &self.upload_url, opts).await
 }
 ```
 
 `build_download_url` is deleted from `cloudflare.rs`; it moves to
-`throughput.rs` and is now internal to `throughput::download`.
+`throughput.rs` and is now internal to `throughput::download_parallel`.
 
 **Dead imports to remove from `cloudflare.rs`:** After the refactor,
 `Bytes`, `Duration`, `Instant`, and `futures::stream::BoxStream` are no
@@ -464,7 +503,7 @@ construction — no new documentation needed.
 
 SPEC-010 required `+ use<>` on `download_one`'s return type because
 the RPIT return captures `&Client` in the `'static` stream. The
-extracted `throughput::download` helper has no RPIT — it returns the
+extracted `throughput::download_parallel` helper has no RPIT — it returns the
 concrete `Result<DownloadStream, BackendError>` where `DownloadStream`
 is `BoxStream<'static, ...>`. The `&Client` and `&Url` references are
 used to build futures but are never captured in the returned `BoxStream`.
@@ -499,7 +538,7 @@ behavior, so existing test files are unaffected.
 The parallel dispatch logic in `CloudflareBackend::download` and the
 forthcoming `GenericHttpBackend::download` would be byte-for-byte
 identical except for the URL input. The same is true for `upload`.
-Extracting into `throughput::download` and `throughput::upload`:
+Extracting into `throughput::download_parallel` and `throughput::upload_parallel`:
 
 - Reduces duplication of ~30 lines per backend (including the
   `connections == 0` guard, `try_join_all`, `select_all` wiring,
@@ -514,10 +553,14 @@ Extracting into `throughput::download` and `throughput::upload`:
   removed, ~1 added). All SPEC-010 tests continue to pass unchanged.
 
 Trade-off: `throughput.rs` now has two abstraction levels
-(`download_one`/`upload_one` for per-connection, `download`/`upload`
-for multi-connection orchestration). The naming is clear enough that
-this is acceptable; both sets are `pub` and the module name is
-accurate for both.
+(`download_one`/`upload_one` for per-connection, `download_parallel`/
+`upload_parallel` for multi-connection orchestration). The `_parallel`
+suffix on the multi-connection variants disambiguates them visually
+from the trait methods (`Backend::download` / `Backend::upload`) at
+call sites — important because backend impls read like `throughput::
+download_parallel(&self.client, &self.download_base_url, opts).await`
+inside `async fn download(...)`, and identical naming would invite
+misreads.
 
 ### (B) URL construction — Decision: **Store `download_base_url`, construct per-request**
 
@@ -530,13 +573,13 @@ URL, identical to the Cloudflare pattern. No new design question.
 
 SPEC-010's `tests/throughput.rs` tests `download_one`/`upload_one`
 directly. SPEC-011 adds trait-level tests that exercise the full
-`Backend::download` → `throughput::download` → `download_one` path.
+`Backend::download` → `throughput::download_parallel` → `download_one` path.
 This is more valuable than duplicating module-level tests because:
 
 - It validates the URL construction (`base_url.join("download")` +
   `?bytes=N`) end-to-end against a real HTTP server.
 - It validates `UploadResult.bytes_sent` computation, which lives in
-  `throughput::upload`, not `upload_one`.
+  `throughput::upload_parallel`, not `upload_one`.
 - It proves the `GenericHttpBackend` wiring is correct (URL construction,
   field initialization, `throughput` import chain).
 - It's the test infrastructure SPEC-012's orchestrator can use to
@@ -547,7 +590,7 @@ parallel upload, non-2xx, connection refused, `connections == 0`.
 
 ### (D) `connections == 0` guard — **Resolved by (A)**
 
-Extracting into `throughput::download`/`throughput::upload` puts the
+Extracting into `throughput::download_parallel`/`throughput::upload_parallel` puts the
 guard in one place. The SPEC-010 test `connections_zero_returns_error`
 continues to pass (it fires the same code path via `CloudflareBackend`,
 which now delegates). No duplication; no new AC needed beyond AC-8.
@@ -558,23 +601,23 @@ which now delegates). No duplication; no new AC needed beyond AC-8.
 
 *Filled in at the end of the **build** cycle, before advancing to verify.*
 
-- **Branch:**
-- **PR (if applicable):**
-- **All acceptance criteria met?** yes/no
-- **New decisions emitted:** none anticipated
-- **Deviations from spec:** —
-- **Follow-up work identified:** —
+- **Branch:** feat/spec-011-generic-throughput
+- **PR (if applicable):** pending
+- **All acceptance criteria met?** yes
+- **New decisions emitted:** none
+- **Deviations from spec:** none
+- **Follow-up work identified:** none
 
 ### Build-phase reflection (3 questions, short answers)
 
 1. **What was unclear in the spec that slowed you down?**
-   — <answer>
+   — Nothing. The Implementation Context code skeletons were exact; the carry-forwards from SPEC-010 (Debug gap, no `use<>` needed) were called out precisely.
 
 2. **Was there a constraint or decision that should have been listed but wasn't?**
-   — <answer>
+   — No gaps. `cargo fmt` line-length differences between the spec skeleton and rustfmt's actual output were expected noise, not spec ambiguity.
 
 3. **If you did this task again, what would you do differently?**
-   — <answer>
+   — Run `cargo fmt` before `cargo clippy` in the same command to catch format drift earlier.
 
 ---
 
