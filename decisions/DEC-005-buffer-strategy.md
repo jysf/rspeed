@@ -81,3 +81,10 @@ clone it (cheap — `Bytes` is reference-counted) for each request body.
 - The terminology "zero-copy" is avoided in the codebase and the
   README — we say "buffer-pooled streaming" instead, since the
   receiving-side copy is real.
+- **STAGE-004 follow-up (upload RSS):** SPEC-010's `CloudflareBackend::upload()`
+  allocates one `Bytes` of `bytes_per_request` zeros per call. At the
+  default upload size (25MB), this single allocation exceeds the 20MB RSS
+  budget before any other memory is counted. STAGE-004 should replace this
+  with `reqwest::Body::wrap_stream()` backed by a stream that yields 256KB
+  chunks from a small pre-allocated zero buffer, bringing upload allocation
+  to ~256KB regardless of request size.

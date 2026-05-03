@@ -7,6 +7,7 @@ mod cloudflare;
 mod generic;
 pub(crate) mod latency;
 mod select;
+pub mod throughput;
 
 pub use cloudflare::CloudflareBackend;
 pub use generic::GenericHttpBackend;
