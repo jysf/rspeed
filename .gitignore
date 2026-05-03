@@ -39,3 +39,6 @@ temp/
 # Rust
 /target
 *.rs.bk
+
+# Claude Code working state (worktrees, sessions, etc.)
+.claude/
