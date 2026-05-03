@@ -54,10 +54,18 @@ cost:
       tokens_output: 39204
       estimated_usd: 3.7793
       note: "Verify cycle: full AC walkthrough, regression run, design integrity checks"
+    - cycle: ship
+      date: 2026-05-03
+      agent: claude-sonnet-4-6
+      interface: claude-code
+      tokens_input: 5675048
+      tokens_output: 54033
+      estimated_usd: 4.1853
+      note: ""
   totals:
-    tokens_total: 13951136
-    estimated_usd: 9.9443
-    session_count: 3
+    tokens_total: 19680217
+    estimated_usd: 14.1296
+    session_count: 4
 ---
 
 # SPEC-012: Test orchestrator + headless JSON output
