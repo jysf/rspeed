@@ -38,10 +38,18 @@ cost:
       tokens_output: null
       estimated_usd: null
       note: "Spec authoring + Frame critique in single Opus session (per SPEC-007/008/010/011 precedent)"
+    - cycle: build
+      date: 2026-05-03
+      agent: claude-sonnet-4-6
+      interface: claude-code
+      tokens_input: 9951611
+      tokens_output: 79531
+      estimated_usd: 6.165
+      note: "Build cycle: orchestrator, error, config, lib rewrite, 9 integration tests"
   totals:
     tokens_total: null
     estimated_usd: null
-    session_count: 1
+    session_count: 2
 ---
 
 # SPEC-012: Test orchestrator + headless JSON output
