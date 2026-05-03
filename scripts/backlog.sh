@@ -208,7 +208,7 @@ if [ -d "$STAGES_DIR" ]; then
         if [ "$any" = "0" ]; then echo "  ${DIM}(none)${RESET}"; fi
     else
         if [ -n "$ACTIVE_STAGE_FILE" ]; then
-            bullets=$(extract_unpromoted_bullets "$ACTIVE_STAGE_FILE")
+            bullets=$(extract_pending_bullets "$ACTIVE_STAGE_FILE")
             if [ -n "$bullets" ]; then
                 echo "  ${DIM}— ${ACTIVE_STAGE_ID}${RESET}"
                 while IFS= read -r line; do
