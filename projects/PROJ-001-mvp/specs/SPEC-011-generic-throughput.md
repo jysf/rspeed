@@ -1,0 +1,592 @@
+---
+task:
+  id: SPEC-011
+  type: story
+  cycle: design
+  blocked: false
+  priority: high
+  complexity: S
+  estimated_hours: 2
+
+project:
+  id: PROJ-001
+  stage: STAGE-002
+repo:
+  id: rspeed
+
+agents:
+  architect: claude-sonnet-4-6
+  implementer: null
+  created_at: 2026-05-02
+
+references:
+  decisions: [DEC-002, DEC-003, DEC-005]
+  constraints:
+    - test-before-implementation
+    - no-new-top-level-deps-without-decision
+  related_specs: [SPEC-009, SPEC-010, SPEC-012]
+
+value_link: "wires GenericHttpBackend download/upload so --server works end-to-end and integration tests can drive the full trait surface without live Cloudflare traffic"
+
+cost:
+  sessions:
+    - cycle: design
+      date: 2026-05-02
+      agent: claude-sonnet-4-6
+      interface: claude-code
+      tokens_input: null
+      tokens_output: null
+      estimated_usd: null
+      note: "Spec authoring + Frame critique in single Sonnet session"
+    - cycle: build
+      date: null
+      agent: null
+      interface: claude-code
+      tokens_input: null
+      tokens_output: null
+      estimated_usd: null
+      note: ""
+    - cycle: verify
+      date: null
+      agent: null
+      interface: claude-code
+      tokens_input: null
+      tokens_output: null
+      estimated_usd: null
+      note: ""
+    - cycle: ship
+      date: null
+      agent: null
+      interface: claude-code
+      tokens_input: null
+      tokens_output: null
+      estimated_usd: null
+      note: ""
+  totals:
+    tokens_total: 0
+    estimated_usd: 0
+    session_count: 0
+---
+
+# SPEC-011: Generic HTTP backend — real download/upload
+
+## Context
+
+Fifth measurement spec under STAGE-002. SPEC-010 shipped
+`CloudflareBackend::download` and `::upload` plus the shared
+`src/backend/throughput.rs` module (`download_one`, `upload_one`).
+SPEC-011 wires `GenericHttpBackend` to the same shared module.
+
+`GenericHttpBackend` currently returns `Err(BackendError::NotImplemented)`
+for both `download` and `upload`. This means `--server <url>` is
+silently broken for any user who tries it. SPEC-011 fixes that by
+delegating to `throughput.rs` — the same per-connection HTTP mechanics
+already proven in SPEC-010.
+
+This is also the first spec that can do **full trait-level integration
+testing** for download and upload: `GenericHttpBackend`'s URLs are
+configurable, so tests can point it at `MockServer`. That testing
+infrastructure is reusable by SPEC-012 (test orchestrator).
+
+DEC-002 governs the HTTP client. DEC-003 specifies the Generic backend
+protocol: `GET {base}/download?bytes=N`, `POST {base}/upload`. DEC-005
+covers upload allocation — same reasoning as SPEC-010 (single
+allocation, O(1) clone per connection; pool not applicable to the
+reqwest streaming path).
+
+## Goal
+
+Wire `GenericHttpBackend::download()` and `::upload()` by extracting
+the parallel-dispatch logic from `CloudflareBackend` into two new
+`throughput.rs` helpers (`throughput::download` and
+`throughput::upload`), reducing both backends to one-liner delegations
+and eliminating ~30 lines of duplication. Add trait-level integration
+tests in `tests/generic_backend.rs`.
+
+No `Backend` trait signature changes. No new top-level dependencies.
+
+## Inputs
+
+- **`src/backend/throughput.rs`** — existing `download_one` / `upload_one`;
+  SPEC-011 adds `build_download_url`, `download` (parallel orchestration),
+  `upload` (parallel orchestration)
+- **`src/backend/cloudflare.rs`** — SPEC-010's implementation; SPEC-011
+  simplifies `download()` / `upload()` to single-line delegations and
+  removes `build_download_url` (it moves to `throughput.rs`)
+- **`src/backend/generic.rs`** — current state: stub `download`/`upload`
+  returning `NotImplemented`; SPEC-011 fills both
+- **`src/backend/mod.rs`** — `Backend` trait, opts/result types,
+  `DownloadStream`
+- **`tests/common/mod.rs`** — `MockServer` already has `download_count()`,
+  `upload_count()`, `download_status`, `upload_status`; no extensions needed
+- **`decisions/DEC-003-backend-abstraction.md`** — Generic protocol contract:
+  `GET {base}/download?bytes=N`, `POST {base}/upload`
+- **`decisions/DEC-002-http-client.md`** — `reqwest` config
+
+## Outputs
+
+- **Files created:**
+  - `tests/generic_backend.rs` — trait-level integration tests (see
+    **Failing Tests**)
+
+- **Files modified:**
+  - `src/backend/throughput.rs`:
+    - Add `pub fn build_download_url(base: &Url, bytes: u64) -> Result<Url, BackendError>`
+      (moved from `CloudflareBackend`; no behavior change)
+    - Add `pub async fn download(client: &Client, download_base_url: &Url, opts: &DownloadOpts) -> Result<DownloadStream, BackendError>`
+      (parallel orchestration extracted from `CloudflareBackend::download`)
+    - Add `pub async fn upload(client: &Client, upload_url: &Url, opts: &UploadOpts) -> Result<UploadResult, BackendError>`
+      (parallel orchestration extracted from `CloudflareBackend::upload`)
+    - All three additions are `pub` (same visibility as `download_one` / `upload_one`)
+  - `src/backend/cloudflare.rs`:
+    - Replace `download()` body with `throughput::download(&self.client, &self.download_base_url, opts).await`
+    - Replace `upload()` body with `throughput::upload(&self.client, &self.upload_url, opts).await`
+    - Remove `build_download_url` associated function (it moves to `throughput.rs`)
+  - `src/backend/generic.rs`:
+    - Add `download_base_url: Url` and `upload_url: Url` fields
+    - Populate both in `new()` via `base_url.join("download")?` and `base_url.join("upload")?`
+    - Add `throughput` to `use super::` imports
+    - Replace `download()` body with `throughput::download(&self.client, &self.download_base_url, opts).await`
+    - Replace `upload()` body with `throughput::upload(&self.client, &self.upload_url, opts).await`
+
+- **`Cargo.toml`:** no changes. All needed types and functions are in
+  deps already on the graph (`futures`, `bytes`, `reqwest`, `tokio`).
+
+- **`tests/common/mod.rs`:** no changes. `download_status`, `upload_status`,
+  `download_count()`, `upload_count()` already exist from SPEC-010.
+
+## Acceptance Criteria
+
+- [ ] **AC-1: `throughput::build_download_url` is `pub` and moved from
+  `cloudflare.rs`.** Identical behavior to the former `CloudflareBackend::
+  build_download_url`: appends `?bytes=N` via `url.query_pairs_mut().
+  append_pair("bytes", &bytes.to_string())`. `CloudflareBackend` calls
+  it via `throughput::build_download_url(...)`.
+
+- [ ] **AC-2: `throughput::download` contains the parallel orchestration
+  logic.** Signature: `pub async fn download(client: &Client, download_base_url:
+  &Url, opts: &DownloadOpts) -> Result<DownloadStream, BackendError>`.
+  Implementation: `connections == 0` guard (returns `Protocol` error);
+  builds per-connection URLs via `build_download_url`; issues N futures
+  via `try_join_all`; merges streams via `select_all`; returns
+  `Box::pin(merged)`. Identical logic to the SPEC-010 `CloudflareBackend::
+  download` body, parameterized over URL.
+
+- [ ] **AC-3: `throughput::upload` contains the parallel orchestration
+  logic.** Signature: `pub async fn upload(client: &Client, upload_url:
+  &Url, opts: &UploadOpts) -> Result<UploadResult, BackendError>`.
+  Implementation: `connections == 0` guard; single `Bytes` allocation,
+  `clone()` per connection; `try_join_all`; wall-clock `elapsed` wraps
+  the join; returns `UploadResult::new(bytes_per * n, elapsed)`. Identical
+  logic to the SPEC-010 `CloudflareBackend::upload` body, parameterized
+  over URL.
+
+- [ ] **AC-4: `CloudflareBackend::download` and `::upload` delegate to
+  `throughput`.** Both method bodies become single-expression delegations.
+  All existing `tests/throughput.rs` tests pass without modification,
+  including `connections_zero_returns_error` (which now goes through
+  `throughput::download`/`throughput::upload`).
+
+- [ ] **AC-5: `GenericHttpBackend` has `download_base_url` and
+  `upload_url` fields.** Both are `Url`, constructed in `new()` via
+  `base_url.join("download")` and `base_url.join("upload")` respectively.
+  URL join errors map to `BackendError::Protocol(e.to_string())`, same
+  pattern as the existing `ping_url` construction.
+
+- [ ] **AC-6: `GenericHttpBackend::download` issues parallel requests
+  to `{base_url}download?bytes=N`.** With `opts.connections == n`,
+  `n` parallel GET requests hit `download?bytes=N` on `MockServer`.
+  Verified by `mock.download_count() == n` in the parallel-connections
+  test.
+
+- [ ] **AC-7: `GenericHttpBackend::upload` issues parallel POST requests
+  to `{base_url}upload`.** With `opts.connections == n`, `n` parallel
+  POST requests hit `upload` on `MockServer`. `UploadResult::bytes_sent
+  == opts.bytes_per_request * n`. Verified by `mock.upload_count() == n`.
+
+- [ ] **AC-8: `connections == 0` guard lives in `throughput::download`
+  and `throughput::upload`, not in each backend.** Code inspection:
+  `grep -n 'connections == 0' src/backend/throughput.rs` returns two
+  matches (one per function); `grep -n 'connections == 0' src/backend/
+  cloudflare.rs` and `...generic.rs` return zero matches.
+
+- [ ] **AC-9: All prior tests pass without modification.** All tests in
+  `tests/throughput.rs` (9), `tests/latency.rs`, `tests/smoke.rs`,
+  `tests/buffer_pool.rs`, `tests/cli.rs`, `tests/version.rs`,
+  `tests/metrics.rs` continue to pass.
+
+- [ ] **AC-10: `cargo clippy --all-targets -- -D warnings` and
+  `cargo fmt --check` pass.**
+
+- [ ] **AC-11: Lib-side `unwrap`/`expect`/`panic` discipline preserved.**
+  No `unwrap()`, `expect()`, or `panic!()` in `throughput.rs` new code,
+  or in `generic.rs`. `tests/generic_backend.rs` carries
+  `#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]`
+  per project test convention.
+
+- [ ] **AC-12: No new top-level deps.** `Cargo.toml` `[dependencies]`
+  and `[dev-dependencies]` unchanged.
+
+- [ ] **AC-13: All three CI runners.** macOS arm64, Linux x86_64, Windows
+  x86_64.
+
+## Failing Tests
+
+Written during **design**. Build cycle makes these pass.
+
+All live in `tests/generic_backend.rs`. The file opens with:
+
+```rust
+#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+
+mod common;
+
+use axum::http::StatusCode;
+use common::{MockOptions, MockServer};
+use futures::StreamExt;
+use rspeed::{Backend, BackendError, DownloadOpts, GenericHttpBackend, UploadOpts};
+
+fn build_backend(mock: &MockServer) -> GenericHttpBackend {
+    GenericHttpBackend::new(mock.base_url()).unwrap()
+}
+```
+
+---
+
+**`"generic_backend_download_happy_path"`** — `#[tokio::test]`.
+Builds backend against `MockServer::start()`. Calls `backend.download(
+&DownloadOpts::new(1_048_576, 1)).await.unwrap()`. Drains the stream.
+Asserts total bytes == `1_048_576` and `mock.download_count() == 1`.
+
+**`"generic_backend_upload_happy_path"`** — `#[tokio::test]`.
+Calls `backend.upload(&UploadOpts::new(64 * 1024, 1)).await.unwrap()`.
+Asserts `result.bytes_sent == 64 * 1024`, `!result.elapsed.is_zero()`,
+and `mock.upload_count() == 1`.
+
+**`"generic_backend_download_parallel_connections"`** — `#[tokio::test]`.
+Calls `backend.download(&DownloadOpts::new(256 * 1024, 4)).await.unwrap()`.
+Drains merged stream. Asserts total bytes == `4 * 256 * 1024` and
+`mock.download_count() == 4`.
+
+**`"generic_backend_upload_parallel_connections"`** — `#[tokio::test]`.
+Calls `backend.upload(&UploadOpts::new(16 * 1024, 4)).await.unwrap()`.
+Asserts `result.bytes_sent == 4 * 16 * 1024` and `mock.upload_count() == 4`.
+
+**`"generic_backend_non_2xx_download_returns_protocol_error"`** —
+`#[tokio::test]`. Starts `MockServer::start_with_options(MockOptions {
+download_status: StatusCode::INTERNAL_SERVER_ERROR, ..Default::default()
+})`. Calls `backend.download(&DownloadOpts::new(1024, 1)).await`.
+Asserts `Err(BackendError::Protocol(msg))` where `msg.contains("500")`.
+
+**`"generic_backend_connection_refused_returns_network_error"`** —
+`#[tokio::test]`. Constructs `GenericHttpBackend::new(
+"http://127.0.0.1:1/".parse().unwrap()).unwrap()`. Calls `backend.download(
+&DownloadOpts::new(1024, 1)).await`. Asserts `Err(BackendError::Network(_))`.
+No timeout needed — kernel-level RST is fast.
+
+**`"generic_backend_connections_zero_returns_error"`** — `#[tokio::test]`.
+Uses default `MockServer`. Calls `backend.download(&DownloadOpts::new(
+1024, 0)).await`. Asserts `Err(BackendError::Protocol(_))`. Calls
+`backend.upload(&UploadOpts::new(1024, 0)).await`. Asserts
+`Err(BackendError::Protocol(_))`. No network traffic expected (guard
+fires before any request).
+
+---
+
+**Note on `Result<impl Stream, _>` Debug gap:** Per SPEC-010 build
+surprise #2, `Result<impl Stream, BackendError>` does not implement
+`Debug`, so tests that check error paths on `Backend::download()` must
+use explicit `match` arms with `panic!()` rather than `.unwrap()` or
+`assert!(matches!(...))`. The `#![allow(clippy::panic)]` on the test
+file covers this. Tests that check `Backend::upload()` error paths can
+use `unwrap()` since `Result<UploadResult, BackendError>` does implement
+`Debug`.
+
+## Implementation Context
+
+### `throughput.rs` additions
+
+The extracted `download` and `upload` helpers use the same logic as the
+current `CloudflareBackend` methods, parameterized over URL inputs:
+
+```rust
+pub fn build_download_url(base: &Url, bytes: u64) -> Result<Url, BackendError> {
+    let mut url = base.clone();
+    url.query_pairs_mut().append_pair("bytes", &bytes.to_string());
+    Ok(url)
+}
+
+pub async fn download(
+    client: &Client,
+    download_base_url: &Url,
+    opts: &DownloadOpts,
+) -> Result<DownloadStream, BackendError> {
+    if opts.connections == 0 {
+        return Err(BackendError::Protocol("connections must be > 0".to_string()));
+    }
+    let n = opts.connections as usize;
+    let bytes_per = opts.bytes_per_request;
+
+    let futures_list: Vec<_> = (0..n)
+        .map(|_| {
+            let client = client.clone();
+            let url_result = build_download_url(download_base_url, bytes_per);
+            async move {
+                let url = url_result?;
+                download_one(&client, url).await
+            }
+        })
+        .collect();
+
+    let streams = futures::future::try_join_all(futures_list).await?;
+    let pinned: Vec<BoxStream<'static, Result<Bytes, BackendError>>> = streams
+        .into_iter()
+        .map(|s| -> BoxStream<'static, Result<Bytes, BackendError>> { Box::pin(s) })
+        .collect();
+    Ok(Box::pin(futures::stream::select_all(pinned)))
+}
+
+pub async fn upload(
+    client: &Client,
+    upload_url: &Url,
+    opts: &UploadOpts,
+) -> Result<UploadResult, BackendError> {
+    if opts.connections == 0 {
+        return Err(BackendError::Protocol("connections must be > 0".to_string()));
+    }
+    let n = opts.connections as usize;
+    let bytes_per = opts.bytes_per_request;
+
+    // DEC-005: one allocation per upload() call, cloned per connection.
+    let body = Bytes::from(vec![0u8; bytes_per as usize]);
+    let start = Instant::now();
+
+    let futures_list: Vec<_> = (0..n)
+        .map(|_| {
+            let client = client.clone();
+            let url = upload_url.clone();
+            let body = body.clone();
+            async move { upload_one(&client, url, body).await }
+        })
+        .collect();
+
+    futures::future::try_join_all(futures_list).await?;
+    let elapsed = start.elapsed();
+    Ok(UploadResult::new(bytes_per * (n as u64), elapsed))
+}
+```
+
+New imports needed in `throughput.rs`:
+
+```rust
+use futures::stream::BoxStream;
+
+use super::{BackendError, DownloadOpts, DownloadStream, UploadOpts, UploadResult};
+```
+
+(`DownloadOpts`, `UploadOpts`, `UploadResult`, `DownloadStream` are
+not currently imported in `throughput.rs`; `BoxStream` is needed for the
+`map(|s| -> BoxStream<...>` cast.)
+
+### `cloudflare.rs` after refactor
+
+`CloudflareBackend::download` becomes:
+
+```rust
+async fn download(&self, opts: &DownloadOpts) -> Result<DownloadStream, BackendError> {
+    throughput::download(&self.client, &self.download_base_url, opts).await
+}
+```
+
+`CloudflareBackend::upload` becomes:
+
+```rust
+async fn upload(&self, opts: &UploadOpts) -> Result<UploadResult, BackendError> {
+    throughput::upload(&self.client, &self.upload_url, opts).await
+}
+```
+
+`build_download_url` is deleted from `cloudflare.rs`; it moves to
+`throughput.rs` and is now internal to `throughput::download`.
+
+**Dead imports to remove from `cloudflare.rs`:** After the refactor,
+`Bytes`, `Duration`, `Instant`, and `futures::stream::BoxStream` are no
+longer referenced in `cloudflare.rs` (all three were used only in the
+former `download`/`upload` bodies). Clippy (`-D warnings`) will flag
+them as unused imports; remove them as part of this PR.
+
+### `generic.rs` additions
+
+New fields in `GenericHttpBackend`:
+
+```rust
+pub struct GenericHttpBackend {
+    base_url: Url,
+    client: reqwest::Client,
+    ping_url: Url,
+    tcp_target: String,
+    download_base_url: Url,   // new
+    upload_url: Url,           // new
+}
+```
+
+Construction in `new()` (after existing `ping_url` construction):
+
+```rust
+let download_base_url = base_url
+    .join("download")
+    .map_err(|e| BackendError::Protocol(e.to_string()))?;
+let upload_url = base_url
+    .join("upload")
+    .map_err(|e| BackendError::Protocol(e.to_string()))?;
+```
+
+`use super::` import gains `throughput`:
+
+```rust
+use super::{
+    Backend, BackendError, DownloadOpts, DownloadStream, LatencyProbeOutcome,
+    UploadOpts, UploadResult, throughput,
+};
+```
+
+### URL join semantics
+
+`Url::join` replaces the last path segment unless the base URL ends
+with `/`. `MockServer::base_url()` always returns a trailing-slash URL
+(`http://127.0.0.1:{port}/`), so `base.join("download")` →
+`http://127.0.0.1:{port}/download`. For production use, the user must
+pass a base URL with a trailing slash when using path prefixes. This is
+the same constraint that already applies to the existing `ping_url`
+construction — no new documentation needed.
+
+### Rust 2024 RPIT and `use<>` — not applicable here
+
+SPEC-010 required `+ use<>` on `download_one`'s return type because
+the RPIT return captures `&Client` in the `'static` stream. The
+extracted `throughput::download` helper has no RPIT — it returns the
+concrete `Result<DownloadStream, BackendError>` where `DownloadStream`
+is `BoxStream<'static, ...>`. The `&Client` and `&Url` references are
+used to build futures but are never captured in the returned `BoxStream`.
+No `use<>` annotation needed.
+
+### Buffer pool accounting
+
+Same as SPEC-010: the pool is not applicable to the reqwest streaming
+path. SPEC-011 doesn't change this reasoning; see SPEC-010's
+**Buffer pool accounting** section.
+
+### No `tests/common/mod.rs` extensions needed
+
+`MockOptions` already has `download_status`, `upload_status` (for
+non-2xx tests). `MockServer` already has `download_count()`,
+`upload_count()` (for parallel-connection tests). Both added in
+SPEC-010. `MockOptions::default()` continues to reproduce SPEC-006
+behavior, so existing test files are unaffected.
+
+### What this spec does NOT do
+
+- Live tests against Cloudflare's `--server`-mode URL — those are
+  gated behind `live` feature (SPEC-013)
+- Change the `Backend` trait signature
+- Use the SPEC-009 buffer pool
+- Implement the test orchestrator (SPEC-012)
+
+## Frame Critique
+
+### (A) Code duplication between backends — Decision: **Extract**
+
+The parallel dispatch logic in `CloudflareBackend::download` and the
+forthcoming `GenericHttpBackend::download` would be byte-for-byte
+identical except for the URL input. The same is true for `upload`.
+Extracting into `throughput::download` and `throughput::upload`:
+
+- Reduces duplication of ~30 lines per backend (including the
+  `connections == 0` guard, `try_join_all`, `select_all` wiring,
+  and `BoxStream` pinning).
+- Centralizes the guard so future backends cannot accidentally omit it.
+- Makes `throughput.rs` the complete source of HTTP measurement
+  mechanics (both per-connection and multi-connection), with all
+  backends as thin URL-configuration wrappers.
+- Touching SPEC-010's `cloudflare.rs` code is justified: this is DRY
+  enforcement at the natural second-implementor boundary, not scope
+  creep. The net delta to `cloudflare.rs` is a deletion (~25 lines
+  removed, ~1 added). All SPEC-010 tests continue to pass unchanged.
+
+Trade-off: `throughput.rs` now has two abstraction levels
+(`download_one`/`upload_one` for per-connection, `download`/`upload`
+for multi-connection orchestration). The naming is clear enough that
+this is acceptable; both sets are `pub` and the module name is
+accurate for both.
+
+### (B) URL construction — Decision: **Store `download_base_url`, construct per-request**
+
+`bytes_per_request` comes from `DownloadOpts`, which arrives at call
+time, so the full URL (`base?bytes=N`) cannot be stored at `new()` time.
+Both backends store the bare base URL for download and the full upload
+URL, identical to the Cloudflare pattern. No new design question.
+
+### (C) Trait-level tests — Decision: **7 tests in `tests/generic_backend.rs`**
+
+SPEC-010's `tests/throughput.rs` tests `download_one`/`upload_one`
+directly. SPEC-011 adds trait-level tests that exercise the full
+`Backend::download` → `throughput::download` → `download_one` path.
+This is more valuable than duplicating module-level tests because:
+
+- It validates the URL construction (`base_url.join("download")` +
+  `?bytes=N`) end-to-end against a real HTTP server.
+- It validates `UploadResult.bytes_sent` computation, which lives in
+  `throughput::upload`, not `upload_one`.
+- It proves the `GenericHttpBackend` wiring is correct (URL construction,
+  field initialization, `throughput` import chain).
+- It's the test infrastructure SPEC-012's orchestrator can use to
+  drive `&dyn Backend` without Cloudflare traffic.
+
+7 tests cover: download happy path, upload happy path, parallel download,
+parallel upload, non-2xx, connection refused, `connections == 0`.
+
+### (D) `connections == 0` guard — **Resolved by (A)**
+
+Extracting into `throughput::download`/`throughput::upload` puts the
+guard in one place. The SPEC-010 test `connections_zero_returns_error`
+continues to pass (it fires the same code path via `CloudflareBackend`,
+which now delegates). No duplication; no new AC needed beyond AC-8.
+
+---
+
+## Build Completion
+
+*Filled in at the end of the **build** cycle, before advancing to verify.*
+
+- **Branch:**
+- **PR (if applicable):**
+- **All acceptance criteria met?** yes/no
+- **New decisions emitted:** none anticipated
+- **Deviations from spec:** —
+- **Follow-up work identified:** —
+
+### Build-phase reflection (3 questions, short answers)
+
+1. **What was unclear in the spec that slowed you down?**
+   — <answer>
+
+2. **Was there a constraint or decision that should have been listed but wasn't?**
+   — <answer>
+
+3. **If you did this task again, what would you do differently?**
+   — <answer>
+
+---
+
+## Reflection (Ship)
+
+*Appended during the **ship** cycle.*
+
+1. **What would I do differently next time?**
+   — <answer>
+
+2. **Does any template, constraint, or decision need updating?**
+   — <answer>
+
+3. **Is there a follow-up spec I should write now before I forget?**
+   — <answer>

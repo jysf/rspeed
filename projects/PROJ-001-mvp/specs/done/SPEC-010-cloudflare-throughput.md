@@ -66,13 +66,13 @@ cost:
       date: 2026-05-02
       agent: null
       interface: claude-code
-      tokens_input: null
-      tokens_output: null
-      estimated_usd: null
+      tokens_input: 3816062
+      tokens_output: 26241
+      estimated_usd: 2.6197
       note: ""
   totals:
-    tokens_total: 8645226
-    estimated_usd: 7.8842
+    tokens_total: 12487529
+    estimated_usd: 10.5039
     session_count: 5
 ---
 
