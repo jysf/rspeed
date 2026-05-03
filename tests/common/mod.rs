@@ -14,7 +14,7 @@ use axum::{
     body::Body,
     extract::{Query, State},
     http::{StatusCode, header},
-    response::Response,
+    response::{IntoResponse, Response},
     routing::{get, post},
 };
 use bytes::Bytes;
@@ -28,8 +28,9 @@ const DOWNLOAD_DEFAULT_BYTES: u64 = 1_000_000;
 const DOWNLOAD_MAX_BYTES: u64 = 1_000_000_000;
 const CHUNK_BYTES: usize = 64 * 1024;
 
-/// Options for the mock ping endpoint. `Default` reproduces the
-/// original SPEC-006 behavior: 200 OK, no delay, counter increments.
+/// Options for the mock server endpoints. `Default` reproduces the
+/// original SPEC-006 behavior: 200 OK for all endpoints, no delay,
+/// counters increment.
 #[derive(Clone)]
 pub struct MockOptions {
     /// HTTP status code returned by /ping. Default: 200 OK.
@@ -37,6 +38,10 @@ pub struct MockOptions {
     /// Optional delay before /ping responds (uses tokio::time::sleep,
     /// so paused-clock tests can advance over it).
     pub ping_delay: Option<Duration>,
+    /// HTTP status code returned by /download. Default: 200 OK.
+    pub download_status: StatusCode,
+    /// HTTP status code returned by /upload. Default: 200 OK.
+    pub upload_status: StatusCode,
 }
 
 impl Default for MockOptions {
@@ -44,6 +49,8 @@ impl Default for MockOptions {
         Self {
             ping_status: StatusCode::OK,
             ping_delay: None,
+            download_status: StatusCode::OK,
+            upload_status: StatusCode::OK,
         }
     }
 }
@@ -53,11 +60,17 @@ struct AppState {
     ping_counter: Arc<AtomicU64>,
     ping_status: StatusCode,
     ping_delay: Option<Duration>,
+    download_counter: Arc<AtomicU64>,
+    download_status: StatusCode,
+    upload_counter: Arc<AtomicU64>,
+    upload_status: StatusCode,
 }
 
 pub struct MockServer {
     addr: SocketAddr,
     ping_counter: Arc<AtomicU64>,
+    download_counter: Arc<AtomicU64>,
+    upload_counter: Arc<AtomicU64>,
     shutdown_tx: Option<tokio::sync::oneshot::Sender<()>>,
     handle: JoinHandle<()>,
 }
@@ -68,15 +81,20 @@ impl MockServer {
         Self::start_with_options(MockOptions::default()).await
     }
 
-    /// Start with custom options (e.g. a non-2xx ping status or a delay).
-    /// Only the `/ping` handler is stateful; `/health`, `/download`, and
-    /// `/upload` remain stateless.
+    /// Start with custom options (e.g. a non-2xx status or a delay).
     pub async fn start_with_options(opts: MockOptions) -> Self {
-        let counter = Arc::new(AtomicU64::new(0));
+        let ping_counter = Arc::new(AtomicU64::new(0));
+        let download_counter = Arc::new(AtomicU64::new(0));
+        let upload_counter = Arc::new(AtomicU64::new(0));
+
         let state = AppState {
-            ping_counter: counter.clone(),
+            ping_counter: ping_counter.clone(),
             ping_status: opts.ping_status,
             ping_delay: opts.ping_delay,
+            download_counter: download_counter.clone(),
+            download_status: opts.download_status,
+            upload_counter: upload_counter.clone(),
+            upload_status: opts.upload_status,
         };
 
         let app = Router::new()
@@ -101,7 +119,9 @@ impl MockServer {
 
         Self {
             addr,
-            ping_counter: counter,
+            ping_counter,
+            download_counter,
+            upload_counter,
             shutdown_tx: Some(tx),
             handle,
         }
@@ -114,6 +134,16 @@ impl MockServer {
     /// Number of requests received at /ping since the server started.
     pub fn ping_count(&self) -> u64 {
         self.ping_counter.load(Ordering::Relaxed)
+    }
+
+    /// Number of requests received at /download since the server started.
+    pub fn download_count(&self) -> u64 {
+        self.download_counter.load(Ordering::Relaxed)
+    }
+
+    /// Number of requests received at /upload since the server started.
+    pub fn upload_count(&self) -> u64 {
+        self.upload_counter.load(Ordering::Relaxed)
     }
 }
 
@@ -146,7 +176,15 @@ struct DownloadQuery {
     bytes: Option<u64>,
 }
 
-async fn download(Query(q): Query<DownloadQuery>) -> Response {
+async fn download(State(state): State<AppState>, Query(q): Query<DownloadQuery>) -> Response {
+    state.download_counter.fetch_add(1, Ordering::Relaxed);
+    if !state.download_status.is_success() {
+        return Response::builder()
+            .status(state.download_status)
+            .body(Body::empty())
+            .unwrap();
+    }
+
     let n = q
         .bytes
         .unwrap_or(DOWNLOAD_DEFAULT_BYTES)
@@ -179,8 +217,16 @@ struct UploadResponse {
     received: u64,
 }
 
-async fn upload(body: Bytes) -> Json<UploadResponse> {
+async fn upload(State(state): State<AppState>, body: Bytes) -> Response {
+    state.upload_counter.fetch_add(1, Ordering::Relaxed);
+    if !state.upload_status.is_success() {
+        return Response::builder()
+            .status(state.upload_status)
+            .body(Body::empty())
+            .unwrap();
+    }
     Json(UploadResponse {
         received: body.len() as u64,
     })
+    .into_response()
 }

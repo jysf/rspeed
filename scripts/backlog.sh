@@ -74,45 +74,61 @@ get_spec_stage_id() {
     ' "$1"
 }
 
-# Extract un-promoted "(not yet written)" bullets from a stage's
-# ## Spec Backlog section. One bullet per line.
-# Convention: `- [ ] (not yet written) — <summary>` with optional
-# `[S]/[M]/[L]` complexity tag anywhere on the line.
-extract_unpromoted_bullets() {
+# Extract all pending (incomplete) bullets from a stage's ## Spec Backlog
+# section. Includes both promoted specs (`- [ ] SPEC-NNN …`) and
+# un-promoted placeholders (`- [ ] (not yet written) …`). One line each.
+extract_pending_bullets() {
     awk '
         /^## Spec Backlog/ { in_b = 1; next }
         in_b && /^## / { in_b = 0 }
         in_b && /\(not yet written\)/ { print }
+        in_b && /^[[:space:]]*-[[:space:]]*\[[[:space:]]\]/ && /SPEC-[0-9]+/ { print }
     ' "$1"
 }
 
-# Trim a bullet line to "summary [complexity]" form. Strips the
-# leading `- [ ] (not yet written) — ` and surfaces a complexity
-# tag if present. Best-effort; the convention isn't enforced.
-format_unpromoted_bullet() {
+# Format a pending bullet. Promoted specs are prefixed with their SPEC-NNN
+# id; un-promoted ones are prefixed with "(pending)". Complexity tag [S/M/L]
+# is surfaced when present.
+format_pending_bullet() {
     local line="$1"
-    local summary
-    summary=$(echo "$line" \
-        | sed -E 's/^[[:space:]]*-[[:space:]]*\[[ x~?]\][[:space:]]*//' \
-        | sed -E 's/\(not yet written\)[[:space:]]*—[[:space:]]*//' \
-        | sed -E 's/\(not yet written\)[[:space:]]*-[[:space:]]*//')
-    # Best-effort complexity extraction: a bracketed S/M/L token.
     local complexity=""
-    if [[ "$summary" =~ \[([SML])\] ]]; then
+    local summary
+
+    # Best-effort complexity extraction.
+    if [[ "$line" =~ \[([SML])\] ]]; then
         complexity="${BASH_REMATCH[1]}"
-        summary=$(echo "$summary" | sed -E 's/[[:space:]]*\[[SML]\][[:space:]]*//')
     fi
-    summary=$(echo "$summary" | sed -E 's/[[:space:]]+$//')
-    if [ -n "$complexity" ]; then
-        printf "%-50s [%s]\n" "$summary" "$complexity"
+
+    if [[ "$line" =~ (SPEC-[0-9]+) ]]; then
+        local spec_id="${BASH_REMATCH[1]}"
+        summary=$(echo "$line" \
+            | sed -E "s/^[[:space:]]*-[[:space:]]*\[[ x~?]\][[:space:]]*//" \
+            | sed -E "s/${spec_id}[[:space:]]*([—-][[:space:]]*)*//" \
+            | sed -E 's/[[:space:]]*\[[SML]\][[:space:]]*//' \
+            | sed -E 's/[[:space:]]+$//')
+        if [ -n "$complexity" ]; then
+            printf "%-12s %-46s [%s]\n" "$spec_id" "$summary" "$complexity"
+        else
+            printf "%-12s %s\n" "$spec_id" "$summary"
+        fi
     else
-        printf "%s\n" "$summary"
+        summary=$(echo "$line" \
+            | sed -E 's/^[[:space:]]*-[[:space:]]*\[[ x~?]\][[:space:]]*//' \
+            | sed -E 's/\(not yet written\)[[:space:]]*—[[:space:]]*//' \
+            | sed -E 's/\(not yet written\)[[:space:]]*-[[:space:]]*//' \
+            | sed -E 's/[[:space:]]*\[[SML]\][[:space:]]*//' \
+            | sed -E 's/[[:space:]]+$//')
+        if [ -n "$complexity" ]; then
+            printf "%-12s %-46s [%s]\n" "(pending)" "$summary" "$complexity"
+        else
+            printf "%-12s %s\n" "(pending)" "$summary"
+        fi
     fi
 }
 
-# Count un-promoted bullets in a stage file.
+# Count pending bullets in a stage file.
 count_unpromoted_bullets() {
-    extract_unpromoted_bullets "$1" | wc -l | tr -d ' '
+    extract_pending_bullets "$1" | wc -l | tr -d ' '
 }
 
 # --- Output ---------------------------------------------------------
@@ -173,19 +189,19 @@ fi
 echo ""
 
 # 2) Un-promoted bullets in active stage (or all) ---------------------
-echo "${BOLD}Stage backlog (not yet specced)${RESET}"
+echo "${BOLD}Stage backlog${RESET}"
 if [ -d "$STAGES_DIR" ]; then
     if [ "$SHOW_ALL" = "1" ]; then
         any=0
         for s in "${STAGES_DIR}"/STAGE-*.md; do
             [ -f "$s" ] || continue
             sid=$(basename "$s" .md | sed -E 's/^(STAGE-[0-9]+).*/\1/')
-            bullets=$(extract_unpromoted_bullets "$s")
+            bullets=$(extract_pending_bullets "$s")
             if [ -n "$bullets" ]; then
                 any=1
                 echo "  — ${sid}"
                 while IFS= read -r line; do
-                    echo "    $(format_unpromoted_bullet "$line")"
+                    echo "    $(format_pending_bullet "$line")"
                 done <<< "$bullets"
             fi
         done
@@ -196,7 +212,7 @@ if [ -d "$STAGES_DIR" ]; then
             if [ -n "$bullets" ]; then
                 echo "  ${DIM}— ${ACTIVE_STAGE_ID}${RESET}"
                 while IFS= read -r line; do
-                    echo "    $(format_unpromoted_bullet "$line")"
+                    echo "    $(format_pending_bullet "$line")"
                 done <<< "$bullets"
             else
                 echo "  ${DIM}(no un-promoted bullets in ${ACTIVE_STAGE_ID})${RESET}"

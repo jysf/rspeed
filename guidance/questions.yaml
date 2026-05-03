@@ -96,6 +96,25 @@ questions:
       parsing is not applicable. This fully resolves the copy/paste friction
       that motivated the original Option B deferral.
 
+  - id: cloudflare-http2-stall-on-parallel-download
+    question: "Does try_join_all + select_all stall on Cloudflare's HTTP/2 multiplexed connection when N download streams are awaited concurrently?"
+    priority: high
+    status: open
+    raised_by: SPEC-010
+    raised_at: 2026-05-02
+    assigned_to: null
+    blocks: SPEC-013
+    notes: |
+      SPEC-010 Frame item (A). MockServer tests use HTTP/1.1 (separate
+      connections per request) so the stall scenario is not exercised.
+      Against Cloudflare's HTTP/2 endpoint, all N connections may be
+      multiplexed onto a single TCP stream; if the server-side flow control
+      window stalls, all N futures block together rather than making partial
+      progress. SPEC-013's live-network tests are the first opportunity to
+      observe this. If stalling is observed, options include: chunked
+      try_join_all with a semaphore, dropping to HTTP/1.1 for download,
+      or tuning the per-stream window size.
+
   - id: throughput-warmup-duration
     question: "Is 2 seconds the right throughput warm-up window, or should it be auto-detected from CWND saturation?"
     priority: low
