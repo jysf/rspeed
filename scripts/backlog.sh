@@ -81,8 +81,7 @@ extract_pending_bullets() {
     awk '
         /^## Spec Backlog/ { in_b = 1; next }
         in_b && /^## / { in_b = 0 }
-        in_b && /\(not yet written\)/ { print }
-        in_b && /^[[:space:]]*-[[:space:]]*\[[[:space:]]\]/ && /SPEC-[0-9]+/ { print }
+        in_b && /^[[:space:]]*-[[:space:]]*\[[[:space:]]\]/ && (/\(not yet written\)/ || /SPEC-[0-9]+/) { print }
     ' "$1"
 }
 
@@ -103,7 +102,11 @@ format_pending_bullet() {
         local spec_id="${BASH_REMATCH[1]}"
         summary=$(echo "$line" \
             | sed -E "s/^[[:space:]]*-[[:space:]]*\[[ x~?]\][[:space:]]*//" \
-            | sed -E "s/${spec_id}[[:space:]]*([—-][[:space:]]*)*//" \
+            | sed -E "s/^[[:space:]]*${spec_id}[[:space:]]*//" \
+            | sed -E 's/^\(not yet written[^)]*\)[[:space:]]*//' \
+            | sed -E 's/^—[[:space:]]*//' \
+            | sed -E 's/^–[[:space:]]*//' \
+            | sed -E 's/^-[[:space:]]*//' \
             | sed -E 's/[[:space:]]*\[[SML]\][[:space:]]*//' \
             | sed -E 's/[[:space:]]+$//')
         if [ -n "$complexity" ]; then

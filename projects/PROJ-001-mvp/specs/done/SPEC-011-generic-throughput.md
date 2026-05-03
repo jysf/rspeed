@@ -58,14 +58,14 @@ cost:
       date: null
       agent: null
       interface: claude-code
-      tokens_input: null
-      tokens_output: null
-      estimated_usd: null
+      tokens_input: 14315928
+      tokens_output: 178486
+      estimated_usd: 50.6201
       note: ""
   totals:
-    tokens_total: 8412943
-    estimated_usd: 9.2765
-    session_count: 3
+    tokens_total: 22907357
+    estimated_usd: 59.8966
+    session_count: 4
 ---
 
 # SPEC-011: Generic HTTP backend — real download/upload

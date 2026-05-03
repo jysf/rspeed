@@ -83,13 +83,13 @@ Roughly 18–22 hours; 4 hr buffer.
 
 ## Spec Backlog
 
-- [ ] (not yet written) — Cold-start budget verification + tuning
-- [ ] (not yet written) — RSS budget verification + tuning
-- [ ] (not yet written) — Throughput budget on macOS (primary)
-- [ ] (not yet written) — Throughput budget on Linux
-- [ ] (not yet written) — Windows "best-effort" verification
-- [ ] (not yet written, stretch) — Unprivileged ICMP on mac/linux
-- [ ] (not yet written) — Performance regression bench in CI
+- [ ] SPEC-020 (not yet written) — Cold-start budget verification + tuning
+- [ ] SPEC-021 (not yet written) — RSS budget verification + tuning
+- [ ] SPEC-022 (not yet written) — Throughput budget on macOS (primary)
+- [ ] SPEC-023 (not yet written) — Throughput budget on Linux
+- [ ] SPEC-024 (not yet written) — Windows "best-effort" verification
+- [ ] SPEC-025 (not yet written, stretch) — Unprivileged ICMP on mac/linux
+- [ ] SPEC-026 (not yet written) — Performance regression bench in CI
 
 **Count:** 0 shipped / 0 active / 7 pending
 
