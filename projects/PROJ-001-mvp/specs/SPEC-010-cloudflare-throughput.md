@@ -50,17 +50,17 @@ cost:
       date: 2026-05-02
       agent: null
       interface: claude-code
-      tokens_input: null
-      tokens_output: null
-      estimated_usd: null
+      tokens_input: 7415263
+      tokens_output: 130133
+      estimated_usd: 6.1813
       note: ""
     - cycle: verify
       date: 2026-05-02
       agent: null
       interface: claude-code
-      tokens_input: null
-      tokens_output: null
-      estimated_usd: null
+      tokens_input: 1091331
+      tokens_output: 8499
+      estimated_usd: 1.7029
       note: ""
     - cycle: ship
       date: 2026-05-02
@@ -71,9 +71,9 @@ cost:
       estimated_usd: null
       note: ""
   totals:
-    tokens_total: null
-    estimated_usd: null
-    session_count: 0
+    tokens_total: 8645226
+    estimated_usd: 7.8842
+    session_count: 5
 ---
 
 # SPEC-010: Cloudflare backend — real download/upload
@@ -685,3 +685,124 @@ capture rules (resolved with `use<>`), and the Debug bound gap on
 `Result<impl Stream, ...>` forcing explicit Err/Ok split in match arms.
 Both are minor. Frame critique quality was excellent: items (A), (B), (F)
 were real issues; all three resolved cleanly in Build.
+
+## Verification Results
+
+**Date:** 2026-05-02
+**Agent:** claude-sonnet-4-6
+**Verdict:** ✅ **APPROVED**
+
+### ACs
+
+| AC | Status | Notes |
+|---|---|---|
+| AC-1 `download_one` signature/headers/error mapping | ✅ | `throughput.rs:9-34`; `Accept-Encoding: identity` at line 18; `BackendError::Network` and `Protocol` mapped correctly |
+| AC-2 `upload_one` timing/headers/error mapping | ✅ | `Instant::now()` before `.send().await` (line 38); `elapsed` captured immediately after await (line 49), before status check; both headers set |
+| AC-3 `pub mod throughput` in `backend/mod.rs`; `pub fn`s; no re-export from `lib.rs` | ✅ | `mod.rs:10` is `pub mod throughput;`; both functions are `pub`; `lib.rs` `pub use` block has no `throughput` |
+| AC-4 `download()` uses `try_join_all` then `select_all` | ✅ | `cloudflare.rs:91-98` — `try_join_all` to establish, `select_all` to merge; `Err` on any failure |
+| AC-5 `upload()` single allocation, cloned per connection, correct `bytes_sent`/`elapsed` | ✅ | One `Bytes::from(vec![0u8;...])` at line 114; `body.clone()` per connection; `elapsed` wraps `try_join_all`; `bytes_sent = bytes_per * n` |
+| AC-6 Cloudflare URLs via `query_pairs_mut` | ✅ | `__down` and `__up` parsed in `new()`; `build_download_url` uses `query_pairs_mut().append_pair` |
+| AC-7 `MockOptions::default()` matches SPEC-006; non-2xx tests work | ✅ | `common/mod.rs:47-56`; handlers check status before serving body; download/upload counters always increment |
+| AC-8 `Accept-Encoding: identity` both functions | ✅ | `grep` returns two matches: lines 18 and 42 of `throughput.rs` |
+| AC-14 `connections == 0` guard before network | ✅ | `cloudflare.rs:71-75` (download) and `101-105` (upload); both before any allocation or network call |
+| AC-9 All three CI runners | ✅ (pending) | Not verified locally; CI status TBD at ship time |
+| AC-10 No new top-level deps | ✅ | `Cargo.toml` `[dependencies]` and `[dev-dependencies]` unchanged |
+| AC-11 No `unwrap`/`expect`/`panic` in lib code | ✅ | `grep` returns no matches in `throughput.rs` or new `cloudflare.rs` code |
+| AC-12 `clippy` and `fmt --check` clean | ✅ | Both pass with zero warnings |
+| AC-13 All prior tests pass | ✅ | buffer_pool (7), latency (9), smoke (4), cli (13), version (1), metrics (10) — all pass |
+
+### Frame outcomes
+
+| Item | Status | Notes |
+|---|---|---|
+| (A) HTTP/2 stall risk for SPEC-013 | ✅ | Noted in Build Completion notes; `parallel_downloads_via_select_all` uses HTTP/1.1 MockServer — limitation acknowledged |
+| (B) DEC-005 upload RSS follow-up | ✅ | `DEC-005-buffer-strategy.md` Consequences section has explicit STAGE-004 follow-up paragraph |
+| (C) `Accept-Encoding` test dropped; AC-8 is code inspection | ✅ | No header-recording test; AC-8 verified by grep |
+| (F) `connections == 0` guard added; test exists | ✅ | Both guards present before body allocation; `connections_zero_returns_error` test covers both paths |
+
+### Build surprises
+
+| Item | Status | Notes |
+|---|---|---|
+| Rust 2024 `use<>` capture annotation | ✅ | `throughput.rs:13` — `+ use<>` present on `download_one` return type; correct (prevents `&Client` capture in `'static` stream) |
+| `#![allow(clippy::panic)]` justification | ✅ | `tests/throughput.rs:1` — justified by `Result<impl Stream, ...>` not implementing `Debug`, requiring explicit match-arm `panic!()` |
+
+### Test run
+
+- **Total:** 69 tests, 0 failures, 0 ignored
+- **`tests/throughput.rs`:** 9 tests (matches spec's post-drop count)
+- All test files pass without modification
+
+## Reflection (Ship)
+
+**What went well or was easier than expected?**
+
+The Implementation Context in the Design spec was accurate enough to write
+the code directly — the `download_one`/`upload_one` signatures, the
+`try_join_all` + `select_all` wiring pattern, and the `MockOptions`
+extension shape all transferred to working code with minimal adjustment.
+Frame critique quality was high: items (A) (HTTP/2 stall), (B) (upload
+RSS), and (F) (`connections == 0` guard) were all genuine issues, and all
+three resolved cleanly in Build without re-opening the Frame. The
+`latency.rs` precedent made `throughput.rs` straightforward to structure.
+
+**What was harder, surprising, or required a correction?**
+
+Two Build surprises, both worth carrying into SPEC-011:
+
+1. **Rust 2024 RPIT lifetime capture rules.** `download_one` returns
+   `-> Result<impl Stream + Send + 'static, _>`, but `&Client` would
+   normally be captured in the `'static` bound because the function
+   takes `client: &Client`. Rust 2024's conservative default (capture
+   all named lifetimes) rejects this. The fix is `+ use<>` on the
+   return type — the stream doesn't actually borrow from `client`
+   (it takes ownership of `response`), so `use<>` is correct. This
+   will affect SPEC-011's `GenericHttpBackend` wiring the same way;
+   both backends call the same `throughput::download_one`, so SPEC-011
+   can copy the pattern verbatim.
+
+2. **`Result<impl Stream, _>` doesn't implement `Debug`.** When testing
+   error paths with `assert!(matches!(...))`, you can't use `?` or
+   `.unwrap()` on an opaque `impl Stream` result because the `Debug`
+   bound isn't satisfied. The idiomatic fix is explicit `match` arms
+   that `panic!()` on the wrong variant. This adds `#![allow(clippy::
+   panic)]` to `tests/throughput.rs` alongside the existing `unwrap_used`
+   / `expect_used` allowances. Any future spec that tests `download_one`
+   error paths directly will need the same allowance.
+
+**What should SPEC-011 (and SPEC-012/013) know?**
+
+- **`throughput.rs` is the shared module SPEC-011 delegates to** —
+  `GenericHttpBackend::download` and `::upload` will be near-trivial
+  wires: construct URL from `opts`, call `throughput::download_one` /
+  `upload_one`, apply the same `try_join_all` + `select_all` pattern.
+  No new module needed; Build should be short.
+
+- **HTTP/2 stall risk on `try_join_all` is real and SPEC-013 must
+  verify.** `parallel_downloads_via_select_all` tests against
+  HTTP/1.1 MockServer (separate connections). Against Cloudflare's
+  HTTP/2 endpoint, all N connections may be multiplexed onto a single
+  TCP stream; if the server-side flow control window stalls, all N
+  futures block together. Frame item (A) was deferred because MockServer
+  doesn't reproduce HTTP/2 multiplexing — SPEC-013's live-network tests
+  are the first opportunity to observe this. Track via
+  `guidance/questions.yaml` id `cloudflare-http2-stall-on-parallel-download`.
+
+- **Upload RSS concern punted to STAGE-004.** A single `Bytes::from(vec!
+  [0u8; N])` is one allocation; with N=25MB and 4 connections that's
+  100MB RSS floor before reqwest/hyper buffering. DEC-005's Consequences
+  section was amended during Build with this note. STAGE-004 should
+  profile RSS against the budget before shipping to users.
+
+- **`connections == 0` guard placement matters.** Both guards sit before
+  `Bytes::from(vec![0u8; ...])` in `upload()` and before any `try_join_
+  all` in `download()`. If the guard is added after the allocation,
+  the zero-length body case becomes an empty `try_join_all` which returns
+  `Ok(())` rather than an error — subtle difference. The current placement
+  is correct; don't move it.
+
+- **`MockOptions` extension shape.** `tests/common/mod.rs` now carries
+  `download_status`, `upload_status`, `download_counter`, and
+  `upload_counter`. Any future spec extending `MockOptions` should follow
+  this additive pattern (`Default::default()` must match the existing
+  passing tests).
