@@ -85,12 +85,12 @@ Roughly 14 hours of focused work.
 
 ## Spec Backlog
 
-- [ ] (not yet written) — Human renderer: indicatif progress bars
-- [ ] (not yet written) — Human renderer: colored summary block
-- [ ] (not yet written) — JSON renderer + schema documentation
-- [ ] (not yet written) — Silent renderer + exit-code matrix
-- [ ] (not yet written) — Error rendering across all three formats
-- [ ] (not yet written) — TTY detection and color auto-disable
+- [ ] SPEC-014 (not yet written) — Human renderer: indicatif progress bars
+- [ ] SPEC-015 (not yet written) — Human renderer: colored summary block
+- [ ] SPEC-016 (not yet written) — JSON renderer + schema documentation
+- [ ] SPEC-017 (not yet written) — Silent renderer + exit-code matrix
+- [ ] SPEC-018 (not yet written) — Error rendering across all three formats
+- [ ] SPEC-019 (not yet written) — TTY detection and color auto-disable
 
 **Count:** 0 shipped / 0 active / 6 pending
 

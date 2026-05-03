@@ -96,11 +96,11 @@ Roughly 10 hours; this is mostly mechanical setup.
 
 ## Spec Backlog
 
-- [ ] (not yet written) — cargo-dist setup and release.yml
-- [ ] (not yet written) — Homebrew tap repo + auto-update
-- [ ] (not yet written) — crates.io publish workflow
-- [ ] (not yet written) — README rewrite with screenshots/asciicast
-- [ ] (not yet written) — CHANGELOG, LICENSE, contributor docs
+- [ ] SPEC-027 (not yet written) — cargo-dist setup and release.yml
+- [ ] SPEC-028 (not yet written) — Homebrew tap repo + auto-update
+- [ ] SPEC-029 (not yet written) — crates.io publish workflow
+- [ ] SPEC-030 (not yet written) — README rewrite with screenshots/asciicast
+- [ ] SPEC-031 (not yet written) — CHANGELOG, LICENSE, contributor docs
 
 **Count:** 0 shipped / 0 active / 5 pending
 
