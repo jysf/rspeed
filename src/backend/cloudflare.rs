@@ -1,10 +1,8 @@
 //! Cloudflare backend.
 
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use async_trait::async_trait;
-use bytes::Bytes;
-use futures::stream::BoxStream;
 use url::Url;
 
 use super::{
@@ -41,13 +39,6 @@ impl CloudflareBackend {
             upload_url,
         })
     }
-
-    fn build_download_url(base: &Url, bytes: u64) -> Result<Url, BackendError> {
-        let mut url = base.clone();
-        url.query_pairs_mut()
-            .append_pair("bytes", &bytes.to_string());
-        Ok(url)
-    }
 }
 
 #[async_trait]
@@ -68,66 +59,10 @@ impl Backend for CloudflareBackend {
     }
 
     async fn download(&self, opts: &DownloadOpts) -> Result<DownloadStream, BackendError> {
-        if opts.connections == 0 {
-            return Err(BackendError::Protocol(
-                "connections must be > 0".to_string(),
-            ));
-        }
-
-        let n = opts.connections as usize;
-        let bytes_per = opts.bytes_per_request;
-
-        let futures_list: Vec<_> = (0..n)
-            .map(|_| {
-                let client = self.client.clone();
-                let url_result = Self::build_download_url(&self.download_base_url, bytes_per);
-                async move {
-                    let url = url_result?;
-                    throughput::download_one(&client, url).await
-                }
-            })
-            .collect();
-
-        let streams = futures::future::try_join_all(futures_list).await?;
-
-        let pinned: Vec<BoxStream<'static, Result<Bytes, BackendError>>> = streams
-            .into_iter()
-            .map(|s| -> BoxStream<'static, Result<Bytes, BackendError>> { Box::pin(s) })
-            .collect();
-
-        Ok(Box::pin(futures::stream::select_all(pinned)))
+        throughput::download_parallel(&self.client, &self.download_base_url, opts).await
     }
 
     async fn upload(&self, opts: &UploadOpts) -> Result<UploadResult, BackendError> {
-        if opts.connections == 0 {
-            return Err(BackendError::Protocol(
-                "connections must be > 0".to_string(),
-            ));
-        }
-
-        let n = opts.connections as usize;
-        let bytes_per = opts.bytes_per_request;
-
-        // DEC-005: one allocation per upload() call, cloned per connection (Bytes is refcounted).
-        // Note: for large bytes_per_request values this allocation exceeds the 20MB RSS budget.
-        // STAGE-004 will stream the upload body via reqwest::Body::wrap_stream() instead.
-        let body = Bytes::from(vec![0u8; bytes_per as usize]);
-
-        let start = Instant::now();
-
-        let futures_list: Vec<_> = (0..n)
-            .map(|_| {
-                let client = self.client.clone();
-                let url = self.upload_url.clone();
-                let body = body.clone();
-                async move { throughput::upload_one(&client, url, body).await }
-            })
-            .collect();
-
-        futures::future::try_join_all(futures_list).await?;
-
-        let elapsed = start.elapsed();
-
-        Ok(UploadResult::new(bytes_per * (n as u64), elapsed))
+        throughput::upload_parallel(&self.client, &self.upload_url, opts).await
     }
 }

@@ -8,7 +8,7 @@ use url::Url;
 
 use super::{
     Backend, BackendError, DownloadOpts, DownloadStream, LatencyProbeOutcome, UploadOpts,
-    UploadResult,
+    UploadResult, throughput,
 };
 
 #[derive(Debug)]
@@ -17,6 +17,8 @@ pub struct GenericHttpBackend {
     client: reqwest::Client,
     ping_url: Url,
     tcp_target: String,
+    download_base_url: Url,
+    upload_url: Url,
 }
 
 impl GenericHttpBackend {
@@ -35,11 +37,20 @@ impl GenericHttpBackend {
             .ok_or_else(|| BackendError::Protocol("base URL missing port".to_string()))?;
         let tcp_target = format!("{host}:{port}");
 
+        let download_base_url = base_url
+            .join("download")
+            .map_err(|e| BackendError::Protocol(e.to_string()))?;
+        let upload_url = base_url
+            .join("upload")
+            .map_err(|e| BackendError::Protocol(e.to_string()))?;
+
         Ok(Self {
             base_url,
             client,
             ping_url,
             tcp_target,
+            download_base_url,
+            upload_url,
         })
     }
 
@@ -66,11 +77,11 @@ impl Backend for GenericHttpBackend {
         .await
     }
 
-    async fn download(&self, _opts: &DownloadOpts) -> Result<DownloadStream, BackendError> {
-        Err(BackendError::NotImplemented)
+    async fn download(&self, opts: &DownloadOpts) -> Result<DownloadStream, BackendError> {
+        throughput::download_parallel(&self.client, &self.download_base_url, opts).await
     }
 
-    async fn upload(&self, _opts: &UploadOpts) -> Result<UploadResult, BackendError> {
-        Err(BackendError::NotImplemented)
+    async fn upload(&self, opts: &UploadOpts) -> Result<UploadResult, BackendError> {
+        throughput::upload_parallel(&self.client, &self.upload_url, opts).await
     }
 }

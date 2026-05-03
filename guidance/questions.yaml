@@ -131,3 +131,13 @@ questions:
       sophisticated approach detects CWND saturation by watching
       throughput stabilize before recording. Defer until we have
       measurements.
+
+  - id: generic-backend-base-url-trailing-slash
+    question: "Should --server URL require a trailing slash, or should we
+      normalize? Url::join replaces the last path segment if no trailing
+      slash, which silently breaks user-supplied base URLs with a path
+      component (e.g. http://server/api/)."
+    severity: warning
+    raised_at: 2026-05-02
+    raised_by: SPEC-011 design (inherited from SPEC-008)
+    blocks: null
