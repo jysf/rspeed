@@ -4,9 +4,9 @@
 |------|-------|--------|-------|
 | 1 | frame | [x] | Folded into design session (same session per SPEC-007/008 precedent) |
 | 2 | design | [x] | Spec authored + Frame critique complete 2026-05-03 |
-| 3 | build | [ ] | Start fresh Sonnet session; read spec §Implementation Context first |
-| 4 | verify | [ ] | Fresh Sonnet session; full AC walkthrough + CI check |
-| 5 | ship | [ ] | Reflection, archive, then trigger Stage Ship for STAGE-002 |
+| 3 | build | [x] | Build complete 2026-05-03 |
+| 4 | verify | [x] | Verify complete 2026-05-03; APPROVED |
+| 5 | ship | [x] | Shipped 2026-05-03, PR #18; stage backlog updated; STAGE-002 complete |
 
 ## Cycle prompts
 

@@ -62,9 +62,9 @@ cost:
       estimated_usd: null
       note: ""
   totals:
-    tokens_total: null
-    estimated_usd: null
-    session_count: 4
+    tokens_total: 11029424
+    estimated_usd: 12.2729
+    session_count: 3
 ---
 
 # SPEC-013: Failure mode tests (timeout, reset, malformed)
@@ -1149,39 +1149,36 @@ Nothing looks half-shipped at the stage level. STAGE-002 is ready to close.
 
 ## Reflection (Ship)
 
-*To be filled in during the ship cycle.*
-
 ### 1. What went well or was easier than expected?
 
-[TBD]
+The architectural deviation proved immediately sound in Verify: placing deadlines in
+`orchestrator.rs` rather than `throughput.rs` means any future `Backend` implementation
+inherits timeout protection at the trait boundary for free — a point the Verify rationale
+surfaced clearly. The chainable `with_intervals(...).with_deadlines(...)` builder also came
+together cleanly; following the established B-1 pattern meant zero existing callers changed
+and the test DSL reads clearly. The Content-Length mismatch approach for mid-stream truncation
+was the right tool — no `panic!()`, no boxing two stream types, just hyper's built-in body-size
+tracking surfacing the premature EOF as a `reqwest::Error`.
 
 ### 2. What was harder, surprising, or required correction?
 
-[TBD]
+The spec's "Files to modify" listed `src/backend/throughput.rs` for the deadline constants
+and wrapping, but the Implementation Context's DEC-003 note and all code examples pointed to
+`orchestrator.rs`. The Build had to reconcile the file list against the spec's own rationale
+and correctly chose the orchestrator — this is the second time a Build deviation beat the
+prescriptive file list (SPEC-012 had a similar moment with `lib::run()`). The PR description
+also carried a test-count error ("84 tests total (78 prior + 6 new)") that conflicted with
+the actual 78 total (72 prior + 6 new); caught in Verify and fixed in this Ship commit.
 
 ### 3. What should STAGE-003 know?
 
-[TBD]
-
-### Draft STAGE-002 stage-level reflection
-
-*Pre-draft for the Stage Ship cycle. The Stage Ship prompt will
-formalize this.*
-
-- **Did STAGE-002 deliver all three critical invariants?**
-  Invariants #1 (MetricsAccumulator decoupled from rendering) and
-  #2 (orchestrator invocation-agnostic, DEC-008 seam) were delivered
-  by SPEC-007/SPEC-012. Invariant #3 (typed failure modes) is
-  delivered by SPEC-013.
-
-- **How many specs did it actually take?** 7 (planned: 7). On budget.
-
-- **What changed from the stage plan?**
-  [Ship cycle fills in]
-
-- **What does STAGE-003 inherit?**
-  - `TestResult` fully populated via `TestSession::run()`
-  - `Snapshot` stream via `session.snapshot_rx()` (watch receiver)
-  - `TestError` with phase tags and `exit_code()` mapping
-  - `Format::Human` interim JSON fallback (STAGE-003 replaces it)
-  - Performance budget verification deferred to STAGE-004
+The `TestSession` snapshot fan-out (DEC-008 seam #1) is accessed via `session.snapshot_rx()`
+— the watch receiver STAGE-003's human renderer subscribes to for live progress. The
+`Format::Human` branch in `lib::run()` currently falls through to JSON (SPEC-012 interim
+stub); STAGE-003 fills this in. Error rendering must distinguish all five `TestError`
+variants (`Network`, `Timeout`, `Protocol`, `Backend`, `Config`) — each needs a distinct
+user-facing message so operators can differentiate a stalled connection from a misconfigured
+URL from a server-side 5xx. The HTTP/2 stall question is deferred to STAGE-004; do not let
+it bleed into STAGE-003 scope. The MockServer extensions accumulated across STAGE-002
+(delays, truncation, status overrides, 64MB body limit) are stable infrastructure STAGE-003
+inherits.
