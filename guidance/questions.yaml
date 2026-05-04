@@ -154,7 +154,33 @@ questions:
       to fail loudly at CLI parse time than to silently strip a path
       segment from the user-supplied base.
 
-  - id: human-format-json-fallback-cleanup
+  - id: stage-level-cost-capture-tooling
+    question: "Should `scripts/record-cost.py` and `scripts/session-cost.py` grow stage-ID support, or should the stage template grow a `cost:` block, so Stage Ship sessions can be cost-tracked the same way as spec cycles?"
+    priority: low
+    status: open
+    raised_by: claude-opus-4-7
+    raised_at: 2026-05-03
+    assigned_to: null
+    blocks: null
+    notes: |
+      STAGE-002's Stage Ship session cost ($37.10, 8.4M in / 55.9k out, opus)
+      was recorded manually in the stage reflection because:
+      (a) `scripts/record-cost.py` searches `projects/**/SPEC-*.md` and finds
+          STAGE files via that glob, but
+      (b) the stage template (`projects/_templates/stage.md`) has no `cost:`
+          frontmatter block, so `find_cost_sessions_block()` errors out with
+          "cost: block not found in frontmatter".
+      Two clean fixes:
+      - **Schema-extend:** add a `cost:` block to the stage template (one
+        entry: `- cycle: ship`). Lowest-risk; matches the spec convention
+        exactly. Existing shipped stages (STAGE-001) get backfilled
+        opportunistically.
+      - **Script-extend:** teach `record-cost.py` to detect the `STAGE-`
+        prefix and skip the cost-block requirement, writing to a
+        sibling-file aggregate or a new `cost.md` per stage. Higher-risk;
+        introduces a second cost-storage path.
+      Recommendation: schema-extend. Revisit at STAGE-003 ship or sooner if
+      a second stage hits this same friction.
     question: "Remove SPEC-012's Human-format JSON fall-back when STAGE-003 ships the human renderer."
     priority: low
     status: open

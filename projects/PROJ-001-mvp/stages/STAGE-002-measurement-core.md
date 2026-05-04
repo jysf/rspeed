@@ -256,6 +256,20 @@ new async-cadence spec (SPEC-007 itself); a second one would confirm or invalida
 pattern. Reconsider if STAGE-003's progress-bar/animation work introduces a second
 async-cadence spec, otherwise revisit at STAGE-005's template-revision pass.
 
+### Stage Ship session cost
+
+Recorded manually because the stage template has no `cost:` block (this
+gap is now tracked in `guidance/questions.yaml` as
+`stage-level-cost-capture-tooling`):
+
+- **Date:** 2026-05-03
+- **Agent:** claude-opus-4-7 (claude-code, opus, 1M context)
+- **Tokens:** 8,384,236 in / 55,914 out
+- **Estimated USD:** $37.10 (per `scripts/session-cost.py`'s opus
+  pricing model)
+- **Note:** Stage Ship cycle — finalize reflection, codify three
+  AGENTS.md lessons, activate STAGE-003. PR #19.
+
 ### What's the natural next stage?
 
 STAGE-003 (Output & UX). All dependencies are satisfied: `TestResult` fully populated
