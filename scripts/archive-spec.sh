@@ -34,10 +34,25 @@ SPEC_DIR=$(dirname "$SPEC_FILE")
 DONE_DIR="${SPEC_DIR}/done"
 mkdir -p "$DONE_DIR"
 
+# Move (don't copy) so the original is gone. Prefer `git mv` so the
+# rename is staged in one shot — a plain `mv` leaves the deletion
+# unstaged, which is how SPEC-013 ended up duplicated in both specs/
+# and specs/done/ and required a follow-up `git rm` cleanup commit.
+# Fall back to plain `mv` if the file isn't tracked or we're not in
+# a git working tree (e.g. the template's scratch-dir test harness).
+archive_move() {
+    local src="$1" dst="$2"
+    if git ls-files --error-unmatch "$src" >/dev/null 2>&1; then
+        git mv "$src" "$dst"
+    else
+        mv "$src" "$dst"
+    fi
+}
+
 SPEC_BASENAME=$(basename "$SPEC_FILE")
 TARGET="${DONE_DIR}/${SPEC_BASENAME}"
 
-mv "$SPEC_FILE" "$TARGET"
+archive_move "$SPEC_FILE" "$TARGET"
 success "Archived: ${SPEC_FILE} → ${TARGET}"
 
 # Co-archive the timeline file if one exists. The timeline is an
@@ -46,7 +61,7 @@ success "Archived: ${SPEC_FILE} → ${TARGET}"
 TIMELINE_FILE=$(find_spec_timeline "$SPEC_ID")
 if [ -n "$TIMELINE_FILE" ]; then
     TIMELINE_TARGET="${DONE_DIR}/$(basename "$TIMELINE_FILE")"
-    mv "$TIMELINE_FILE" "$TIMELINE_TARGET"
+    archive_move "$TIMELINE_FILE" "$TIMELINE_TARGET"
     success "Archived timeline: ${TIMELINE_FILE} → ${TIMELINE_TARGET}"
 fi
 
