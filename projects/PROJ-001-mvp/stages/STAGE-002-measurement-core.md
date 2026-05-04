@@ -1,7 +1,7 @@
 ---
 stage:
   id: STAGE-002
-  status: active
+  status: shipped
   priority: high
   target_complete: null
 
@@ -11,7 +11,7 @@ repo:
   id: rspeed
 
 created_at: 2026-04-27
-shipped_at: null
+shipped_at: 2026-05-03
 
 value_contribution:
   advances: "delivers the actual speedtest engine — without this stage there is no product, only scaffolding"
@@ -122,20 +122,32 @@ These are the seams that downstream stages and v2 work depend on:
   `Snapshot` stream, and error types that distinguish user-fixable
   from environment errors.
 
-## Stage-Level Reflection (DRAFT — finalized at Stage Ship)
+## Stage-Level Reflection
 
 ### Did STAGE-002 deliver the stage's `value_contribution`?
 
 - **Real download/upload/HTTP RTT measurements** — Yes. SPEC-008 delivered HTTP RTT + TCP
   fallback latency. SPEC-010 (Cloudflare) and SPEC-011 (GenericHttp) delivered parallel
-  download/upload throughput via `download_parallel`/`upload_parallel`.
+  download/upload throughput via `download_parallel`/`upload_parallel`. Verified end-to-end
+  by `tests/orchestrator.rs` and `tests/failure_modes.rs` against the mock backend; live
+  Cloudflare validation deferred to STAGE-004 per SPEC-013 scope decision.
 - **Valid `TestResult` JSON output** — Yes. SPEC-012 delivered `TestSession::run()` and
-  `lib::run()` with `--format json` producing a fully populated `TestResult`.
+  `lib::run()` with `--format json` producing a fully populated `TestResult` (all fields
+  populated: `started_at`, `backend`, `server_url`, `ip_version`, `duration_secs`, `latency`,
+  `download`, `upload`). Confirmed at `src/lib.rs:74` and `src/result.rs:14`. Note the
+  brief's "JSON output consumed by a third-party script we did not write" success signal
+  is **reachable in source** today; it becomes **reachable to external users** post-STAGE-005
+  release.
 - **Snapshot-fan-out seam (DEC-008)** — Yes. SPEC-007 delivered `MetricsAccumulator` +
-  `watch::Sender<Snapshot>`; SPEC-012 wired it into the orchestrator and exposed `snapshot_rx()`.
-- **Structured failure handling** — Yes. SPEC-012 established `TestError` variants and phase
-  tagging; SPEC-013 proved all adversarial paths (stall, truncation, non-2xx) produce the
-  correct typed variant end-to-end through the orchestrator stack.
+  `watch::Sender<Snapshot>`; SPEC-012 wired it into the orchestrator and exposed
+  `snapshot_rx()` at `src/orchestrator.rs:78`. Per-phase forwarders (one accumulator per
+  phase, forwarded into the outer `watch` sender) keep the seam intact across phase
+  boundaries with no subscriber coupling.
+- **Structured failure handling** — Yes. SPEC-012 established `TestError` variants
+  (`Config`, `Backend`, `Latency`, `Download`, `Upload`) and phase tagging; SPEC-013 proved
+  all adversarial paths (stall, truncation, non-2xx) produce the correct typed variant
+  end-to-end through the orchestrator stack. Six failure-mode tests in
+  `tests/failure_modes.rs` cover the adversarial matrix.
 
 ### How many specs did it actually take?
 
@@ -144,57 +156,110 @@ shipped independently without needing to pull work forward or push work back.
 
 ### Are the three critical invariants intact?
 
-1. **`MetricsAccumulator` decoupled from rendering (DEC-008 seam #1)** — Yes. SPEC-007 owns
-   the accumulator; it emits `Snapshot` on a watch channel with no subscriber coupling.
-   SPEC-012 consumes it via `snapshot_rx()`. The accumulator has no knowledge of how many
-   subscribers exist or what they do with the data.
+1. **`MetricsAccumulator` decoupled from rendering (DEC-008 seam #1)** — Yes. Verified at
+   `src/metrics.rs` (no rendering imports) and `src/orchestrator.rs:208` (the
+   `spawn_forwarder` task forwards `Snapshot` values to the outer `watch::Sender` without
+   the accumulator knowing how many subscribers exist).
 2. **Orchestrator is invocation-agnostic (DEC-008 seam #2)** — Yes. `TestSession::run(&self)`
-   is callable in a loop; a future `MonitorSession` wraps it without measurement code changes.
-   SPEC-013 added deadline fields without altering the seam.
+   at `src/orchestrator.rs:82` takes no per-invocation parameters and returns a `TestResult`,
+   so a future `MonitorSession` can wrap it in a loop without measurement-code changes.
+   SPEC-013 added `download_deadline`/`upload_deadline` fields and a `with_deadlines()`
+   builder without altering the run signature.
 3. **Failure modes return structured errors** — Yes. SPEC-013 closed the gap. Pre-SPEC-013,
-   `BackendError::Timeout` was unreachable from download/upload paths. All six adversarial
-   scenarios now produce correctly typed `TestError` variants.
+   `BackendError::Timeout` was unreachable from download/upload paths because the
+   orchestrator awaited the backend without a deadline. After SPEC-013, the
+   `tokio::time::timeout(...)` wrappers in `run_download_phase`/`run_upload_phase` map
+   elapsed deadlines to `TestError::Download(BackendError::Timeout(_))` and
+   `TestError::Upload(BackendError::Timeout(_))` respectively. All six adversarial scenarios
+   in `tests/failure_modes.rs` produce correctly typed variants.
 
 ### What changed between starting and shipping?
 
+Six design corrections during the stage. Each was Frame-discovered and folded into Build
+in the same commit (the pattern this stage's reflection is now codifying — see lessons
+below):
+
 - **SPEC-008**: `Backend::latency_probe` return type changed from `Vec<Duration>` to
-  `LatencyProbeOutcome` (richer struct carrying method + samples for JSON output).
+  `LatencyProbeOutcome` (richer struct carrying `method` + `samples`); fallibility cascade
+  applied to `CloudflareBackend::new()`, `GenericHttpBackend::new()`, and `select()`. DEC-003
+  amended with both refinements rather than spawning new DECs.
 - **SPEC-009**: Visibility pattern established — `pub` inside module, no top-level re-export
-  from `lib.rs` unless needed by tests or CLI.
-- **SPEC-010**: Upload RSS budget concern surfaced mid-build → DEC-005 amended with STAGE-004
-  follow-up note.
-- **SPEC-011**: `_parallel` naming convention adopted to disambiguate `download_parallel` /
-  `upload_parallel` from identically-named trait methods.
+  from `lib.rs` unless needed by canonical API surface. `Clone` added to `BufferPool` so
+  SPEC-010/011 can hand the pool to async tasks.
+- **SPEC-010**: Upload RSS budget concern surfaced mid-build (single `Bytes::from(vec![0u8;
+  25MB])` × 4 connections > 20MB RSS budget). DEC-005 Consequences amended with STAGE-004
+  follow-up note. Rust 2024 RPIT lifetime capture rule (`+ use<>`) discovered and applied.
+- **SPEC-011**: `_parallel` naming convention adopted (`throughput::download_parallel` /
+  `upload_parallel`) to disambiguate from identically-named trait methods. No surprises in
+  Build — SPEC-010's pattern transferred verbatim.
 - **SPEC-012**: `lib::run()` rewritten for full orchestration; eager `--server` URL validation
-  added via `Config::validate()`.
+  added via `Config::validate()` to fail loudly at CLI parse rather than silently on first
+  request. `with_intervals(...)` extension point added to keep CI suite under 3s/test.
 - **SPEC-013**: Deadline enforcement placed at the orchestrator (the spec's "Files to modify"
-  list pointed to `throughput.rs`; Build correctly followed DEC-003 instead). Second Build
-  deviation in the stage that was architecturally correct.
+  list pointed to `throughput.rs`; Build correctly followed DEC-003's trait-boundary
+  rationale instead — second Build deviation in the stage that was architecturally correct).
+  Chainable `.with_deadlines(...)` builder followed the SPEC-012 B-1 pattern.
+
+**Process learnings (not design):**
+
+- **Test-count grep bug** (SPEC-011 → SPEC-012): `grep "running [0-9]+ tests"` silently
+  skips single-test binaries (Cargo prints "running 1 test" singular). Counting from
+  `test result:` summary lines fixes it. Verified Build Completion sections in subsequent
+  specs include the net count (added − removed), not just the added total.
+- **URL crate normalization**: bare-host URLs (`http://example.com`) silently get a
+  trailing slash from `url::Url`. Validation test fixtures must use an explicit path
+  component (`http://example.com/api`) to exercise rejection branches. Documented
+  inline in SPEC-012's reflection.
 
 ### What did we defer?
 
-- HTTP/2 stall question (`cloudflare-http2-stall-on-parallel-download`) → STAGE-004
-  (recorded in `guidance/questions.yaml`)
-- Upload RSS budget over-allocation → STAGE-004 (in DEC-005 Consequences)
-- `Url::join` trailing-slash UX normalization → STAGE-004 (partial mitigation: `Config::validate()`
-  in SPEC-012; full normalization deferred)
-- `live`-feature Cloudflare integration tests → STAGE-004 (per SPEC-013 scope decision D)
+- **HTTP/2 stall** (`cloudflare-http2-stall-on-parallel-download`, status: open, priority:
+  high) → STAGE-004. SPEC-013's download-deadline test serves as a regression guard: any
+  indefinite stall fails CI within the deadline.
+- **Upload RSS budget over-allocation** → STAGE-004. DEC-005 Consequences carries the
+  follow-up: replace one-shot `Bytes::from(vec![0u8; N])` with `reqwest::Body::wrap_stream()`
+  yielding 256KB chunks.
+- **`Url::join` trailing-slash UX normalization** → STAGE-004. Partial mitigation:
+  `Config::validate()` rejects URLs without trailing-slash paths in SPEC-012. Full
+  user-friendly normalization (auto-append, warn) deferred.
+- **`live`-feature Cloudflare integration tests** → STAGE-004 (per SPEC-013 scope decision
+  D). All STAGE-002 tests run against the mock backend; live-network validation belongs
+  with the perf budgets work.
+- **`throughput-warmup-duration`** (status: open, priority: low) → STAGE-004. The fixed 2s
+  warm-up may be wasteful on fast links or insufficient on high-RTT links. Defer until
+  STAGE-004 has measurements.
+- **`human-format-json-fallback-cleanup`** (status: open, priority: low, blocks STAGE-003).
+  `lib::run()`'s `Format::Human` arm currently falls through to JSON with a stderr warning
+  (`src/lib.rs:81`). SPEC-014 (the human renderer) replaces this branch.
 
-### Lessons worth considering for AGENTS.md / templates / constraints?
+### Lessons codified at Stage Ship
 
-Flag for Stage Ship to decide — not decided here:
+The draft surfaced three candidates; all three landed in AGENTS.md in this session:
 
-1. **"Frame outcomes folded into Build" pattern** used in 5 of 7 specs. It's now load-bearing.
-   Worth promoting from §15's reference to a first-class section in AGENTS.md?
-2. **`pub` module + no-top-level-re-export visibility pattern** (established SPEC-008/009/010/011)
-   is a real project convention now. Worth codifying in the rspeed-specific section?
-3. **Build deviations have been correct twice** (SPEC-012's `lib::run()` placement;
-   SPEC-013's `orchestrator.rs` vs `throughput.rs`). Both times: the prescriptive file list
-   was wrong; the DEC rationale was right. Worth a paragraph on "when to trust a Build
-   deviation"?
+1. **Frame-outcomes-folded-into-Build pattern** — 6 of 7 specs followed it (SPEC-007
+   through SPEC-013, with SPEC-011 trivially N/A — no Frame items to fold). AGENTS.md §15
+   subsection expanded with: when it applies (tractable refinements), when it doesn't
+   (structural rework → NO-GO Frame verdict), and how to mark it (resolution-letter table
+   in spec body, cited in commit messages).
+2. **`pub` module + no-top-level-re-export visibility convention** — codified as a new
+   "Module visibility convention" subsection in AGENTS.md's rspeed-specific section. Two
+   tiers (canonical API surface vs internal-but-test-reachable) with the default being
+   internal-but-test-reachable.
+3. **"When to trust a Build deviation" paragraph** — added to AGENTS.md §15. Frames
+   deviations as signal (the spec's prescriptive file list misled but the underlying DEC
+   rationale was right), with a ratify-or-reject discipline in Verify rather than reflexive
+   reversion. Caveat included that this is not a license to under-invest in Frame.
+
+A fourth candidate from SPEC-007's reflection — adding a "tokio paused-clock pattern"
+checklist item to the spec template — is **not codified yet**. STAGE-002 had only one
+new async-cadence spec (SPEC-007 itself); a second one would confirm or invalidate the
+pattern. Reconsider if STAGE-003's progress-bar/animation work introduces a second
+async-cadence spec, otherwise revisit at STAGE-005's template-revision pass.
 
 ### What's the natural next stage?
 
 STAGE-003 (Output & UX). All dependencies are satisfied: `TestResult` fully populated
-(✓ SPEC-012), live `Snapshot` stream (✓ SPEC-007 + SPEC-012), `TestError` variants with
-phase tags and `exit_code()` mapping (✓ SPEC-012 + SPEC-013).
+(✓ SPEC-012), live `Snapshot` stream via `snapshot_rx()` (✓ SPEC-007 + SPEC-012),
+`TestError` variants with `exit_code()` mapping (✓ SPEC-012 + SPEC-013). The first STAGE-003
+spec (SPEC-014, indicatif progress bars) inherits the `human-format-json-fallback-cleanup`
+follow-up and will remove the SPEC-012 stub branch.

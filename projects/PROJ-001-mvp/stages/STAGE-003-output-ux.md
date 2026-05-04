@@ -1,7 +1,7 @@
 ---
 stage:
   id: STAGE-003
-  status: proposed
+  status: active
   priority: high
   target_complete: null
 
