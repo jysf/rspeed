@@ -372,13 +372,52 @@ Stage Ship prompt.
 
 ### Frame-outcomes-inlined-into-Build pattern
 
-STAGE-001 specs followed a "Frame outcomes folded into Build" pattern:
-the Frame critique produces a written list of resolutions (typically
-5-12 items), and the Build cycle inlines them in the same commit
-rather than emitting separate Frame-only artifacts. Works for specs
-where Frame outcomes are tractable refinements (the common case). Does
-NOT work for specs requiring structural rework — those should produce a
-NO-GO Frame verdict and return to design before Build starts.
+STAGE-001 and STAGE-002 specs followed a "Frame outcomes folded into Build"
+pattern (load-bearing in 6 of 7 STAGE-002 specs): the Frame critique
+produces a written list of resolutions (typically 5–12 items), and the
+Build cycle inlines them in the same commit rather than emitting separate
+Frame-only artifacts.
+
+**When it applies.** Frame outcomes that are tractable refinements —
+small API tweaks (drop `Default`, add `Clone`), error-path additions,
+guard placements, naming conventions, scope clarifications. The common
+case in this repo.
+
+**When it does NOT apply.** Specs requiring structural rework —
+re-architected types, new modules, decision reversals — should produce
+a NO-GO Frame verdict and return to design before Build starts. The
+heuristic: if the resolutions would change the spec's `delivers` list
+or invalidate one of its acceptance criteria, that's NO-GO territory.
+
+**How to mark it.** The architect's Frame critique is captured in the
+spec body's resolution table (lettered items A, B, C…); Build cites
+the resolution letters in commit messages and Build Completion notes
+(e.g., "A-2: explicit abort eliminates the previous-phase-snapshot
+race"). Verify reads the table to confirm each item landed.
+
+### When to trust a Build deviation
+
+Build deviated from the spec's prescriptive guidance and was correct
+to do so twice in STAGE-002 (SPEC-012's `lib::run()` orchestration
+placement; SPEC-013's deadline constants in `orchestrator.rs` rather
+than the spec's listed `throughput.rs`). The pattern: the spec's
+"Files to modify" list named the wrong file, but the spec's underlying
+DEC rationale pointed at the right one. Build saw the conflict at
+file:line context that Frame couldn't.
+
+Treat Build deviations as signal, not noise. Before reflexively
+reverting a deviation in Verify, check it against the underlying DEC:
+
+- **Ratify** if the deviation aligns better with DEC rationale than
+  the spec's surface guidance. Document in the spec's deviations note
+  and in the Reflection.
+- **Reject** if the deviation conflicts with DEC rationale, or breaks
+  an invariant the stage promised. Punch-list back to Build.
+
+This is not a license for Build to ignore Frame. The architect's role
+in Verify is to ratify or reject, not litigate. If deviations become
+routine, the Frame cycle is under-investing in file-level context —
+fix that upstream rather than relaxing the spec contract.
 
 ---
 
@@ -520,6 +559,30 @@ into actual call paths — for rspeed, that's STAGE-002 measurement code.
   `#![allow(clippy::unwrap_used, clippy::expect_used)]` at the top of
   `tests/*.rs` files to preserve the lib-vs-test distinction. Lib code
   stays constrained; fixture code can fail loudly via `unwrap()`.
+
+### Module visibility convention
+
+Two visibility tiers, established across SPEC-008 / SPEC-009 / SPEC-010 /
+SPEC-011 and codified here so future specs don't re-litigate it:
+
+- **Canonical API surface** — types and functions consumers import as
+  `use rspeed::Foo`. These are `pub` in their defining module AND
+  re-exported from `lib.rs` via `pub use module::Foo`. Examples:
+  `Backend`, `TestSession`, `TestResult`, `MetricsAccumulator`,
+  `Config`. Renaming or removing one is a semver break.
+
+- **Internal-but-test-reachable** — types consumed by integration tests
+  in `tests/` (which live in a separate crate, so `pub(crate)` won't
+  reach them) but not part of the documented API surface. These are
+  `pub` in their defining module and **omitted** from `lib.rs`'s
+  `pub use` block. Examples: `buffer_pool::PooledBuffer`,
+  `backend::throughput::download_one`. Reachable via the full path
+  (`rspeed::buffer_pool::PooledBuffer`) but not advertised.
+
+When introducing a new module, default to internal-but-test-reachable
+unless the spec's `delivers` list explicitly names a top-level public
+type. Promote to canonical only when a downstream spec or an external
+consumer needs the short path.
 
 ### Dependency discipline
 
