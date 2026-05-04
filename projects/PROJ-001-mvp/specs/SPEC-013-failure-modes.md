@@ -2,7 +2,7 @@
 task:
   id: SPEC-013
   type: story
-  cycle: verify
+  cycle: ship
   blocked: false
   priority: high
   complexity: S
@@ -41,17 +41,17 @@ cost:
       date: null
       agent: null
       interface: null
-      tokens_input: null
-      tokens_output: null
-      estimated_usd: null
+      tokens_input: 4934915
+      tokens_output: 61133
+      estimated_usd: 4.1413
       note: ""
     - cycle: verify
       date: null
       agent: null
       interface: null
-      tokens_input: null
-      tokens_output: null
-      estimated_usd: null
+      tokens_input: 2268051
+      tokens_output: 26967
+      estimated_usd: 2.8271
       note: ""
     - cycle: ship
       date: null
@@ -1041,9 +1041,9 @@ Total: ~2h50m. Fits comfortably in the 3hr estimate. No split needed.
 ## Build Completion
 
 - **Branch:** `feat/spec-013-failure-modes`
-- **PR (if applicable):** [TBD — opened at verify]
+- **PR (if applicable):** #18
 - **All acceptance criteria met?** Yes (AC-1 through AC-13)
-- **Test count:** 6 new tests in `tests/failure_modes.rs`; 78 prior tests unaffected
+- **Test count:** 72 prior + 6 new = 78 total tests passing
 - **New decisions emitted:** None — all build choices aligned with existing DEC-001/002/003
 - **Deviations from spec:** One intentional:
   - The spec's "Files to modify" listed `src/backend/throughput.rs` for constants and
@@ -1055,6 +1055,95 @@ Total: ~2h50m. Fits comfortably in the 3hr estimate. No split needed.
     connections. `throughput.rs` was not modified.
   - `guidance/questions.yaml` was already updated during design (deferred_to +
     deferral_rationale present, blocks: SPEC-013 absent). No change needed at build.
+
+---
+
+## Verification Results
+
+**Date:** 2026-05-03  
+**Agent:** claude-sonnet-4-6  
+**Branch:** `feat/spec-013-failure-modes`  
+**PR:** #18
+
+### Architectural deviation — ratified
+
+The Build placed `DEFAULT_DOWNLOAD_DEADLINE` / `DEFAULT_UPLOAD_DEADLINE` constants and
+`tokio::time::timeout` wrapping in `src/orchestrator.rs`, not `src/backend/throughput.rs`.
+This is the correct placement. `git diff main -- src/backend/throughput.rs` returns empty —
+`throughput.rs` is untouched. The orchestrator placement enforces the deadline at the
+trait-call boundary (`self.backend.download/upload`), meaning any future `Backend`
+implementation gets the deadline for free. Placing it inside `throughput.rs` would have
+left a hypothetical second backend unprotected. Rationale is sound; deviation is the
+better architecture.
+
+### `with_deadlines` builder
+
+Signature confirmed: `pub fn with_deadlines(mut self, download_deadline: Duration, upload_deadline: Duration) -> Self`.
+Both `with_intervals` and `with_deadlines` consume `self` and return `Self` — chaining is
+`TestSession::with_intervals(...).with_deadlines(...)`. Verified by reading: `with_deadlines`
+only modifies `download_deadline` / `upload_deadline`; `snapshot_interval` and `warmup` are
+untouched. The two timeout tests chain both builders and pass — structurally confirms
+coexistence. `TestSession::new()` delegates to `with_intervals`, which initializes both
+deadline fields to the constants. ✅
+
+### Six failure-mode tests — all pass (1.02s total)
+
+- **`download_timeout_surfaces_test_error_download`**: `Err(TestError::Download(BackendError::Timeout(_)))`. 500ms deadline, 2s server delay. ✅
+- **`upload_timeout_surfaces_test_error_upload`**: `Err(TestError::Upload(BackendError::Timeout(_)))`. 500ms deadline, 2s upload delay. ✅
+- **`download_mid_stream_truncation_surfaces_network_error`**: `Err(TestError::Download(BackendError::Network(_)))`. No flakiness risk — deadline is DEFAULT_DOWNLOAD_DEADLINE (60s), truncation surfaces in milliseconds. ✅
+- **`download_non_2xx_via_orchestrator`**: Drives `TestSession::run()`, not `download_one()`. `Err(TestError::Download(BackendError::Protocol(_)))`. ✅
+- **`upload_non_2xx_via_orchestrator`**: Same orchestrator-level discipline. `Err(TestError::Upload(BackendError::Protocol(_)))`. ✅
+- **`latency_rtt_timeout_triggers_tcp_fallback`**: Asserts `result.latency.method == "tcp_connect"` AND `result.latency.samples > 0`. The `method` assertion would catch a silently broken fallback. Returns `Ok`, finishes in ~1.0s. ✅
+
+### MockServer extensions
+
+Three new `Option<_>` fields all default to `None` — pre-SPEC-013 behavior preserved.
+`download_truncate_at` handler correctly advertises `Content-Length: n` (full size)
+while streaming only `actual_send` bytes — confirmed by reading: `header::CONTENT_LENGTH, n`
+with `Body::from_stream(chunks)` built from `actual_send`. `download_delay` and
+`upload_delay` use `tokio::time::sleep`. Upload counter increments before the delay
+(mechanical note F-1 honored). ✅
+
+### Regression net
+
+All prior tests pass without modification. `git diff main -- 'tests/*'` shows changes
+only to `tests/common/mod.rs` (additive) and new `tests/failure_modes.rs`. Test count:
+78 total across all targets (72 prior + 6 new; the Build Completion's "78 prior" is a
+documentation off-by-six — the actual prior count is 72). All 78 pass. ✅
+
+### `guidance/questions.yaml` deferral
+
+`cloudflare-http2-stall-on-parallel-download` carries `deferred_to: STAGE-004`,
+`deferral_rationale` present, no `blocks: SPEC-013` line. `just status` parses cleanly
+with no errors. ✅
+
+### Lints / build
+
+- `cargo clippy --all-targets -- -D warnings` ✅ clean
+- `cargo fmt --check` ✅ clean
+- `cargo build --release` ✅ succeeds (7.59s)
+- CI: macOS arm64 ✅ / Linux x86_64 ✅ / Windows x86_64 ✅
+
+### Stage-closing readiness check
+
+All six prior STAGE-002 specs' invariants are intact:
+- **Invariant #1** (MetricsAccumulator decoupled from rendering): SPEC-007 delivered; the
+  accumulator emits `Snapshot` on a watch channel with no subscriber coupling. Unchanged.
+- **Invariant #2** (orchestrator invocation-agnostic): SPEC-012 delivered `TestSession::run()`;
+  SPEC-013 adds deadline fields without altering the trait seam. Unchanged.
+- **Invariant #3** (typed failure modes return structured errors): SPEC-013 closes the gap.
+  Pre-SPEC-013, `BackendError::Timeout` was unreachable from download/upload paths — the
+  variant existed in the taxonomy but was never produced. SPEC-013 proves all six adversarial
+  paths return the correct typed variant: `Timeout` for stalls, `Network` for mid-stream
+  truncation, `Protocol` for non-2xx, all properly tagged with `TestError::Download` or
+  `TestError::Upload`. Every external-network-induced failure is now a typed variant of
+  `TestError`. Invariant #3 holds end-to-end. ✅
+
+Nothing looks half-shipped at the stage level. STAGE-002 is ready to close.
+
+---
+
+✅ **APPROVED** — STAGE-002 is one Ship away from closing.
 
 ---
 
