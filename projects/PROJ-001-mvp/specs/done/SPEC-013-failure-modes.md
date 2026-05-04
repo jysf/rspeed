@@ -57,14 +57,14 @@ cost:
       date: null
       agent: null
       interface: null
-      tokens_input: null
-      tokens_output: null
-      estimated_usd: null
+      tokens_input: 2853817
+      tokens_output: 37460
+      estimated_usd: 2.7201
       note: ""
   totals:
-    tokens_total: 11029424
-    estimated_usd: 12.2729
-    session_count: 3
+    tokens_total: 13920701
+    estimated_usd: 14.993
+    session_count: 4
 ---
 
 # SPEC-013: Failure mode tests (timeout, reset, malformed)
