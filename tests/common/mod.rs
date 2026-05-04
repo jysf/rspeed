@@ -42,6 +42,14 @@ pub struct MockOptions {
     pub download_status: StatusCode,
     /// HTTP status code returned by /upload. Default: 200 OK.
     pub upload_status: StatusCode,
+    /// Optional delay before /download sends response headers (for timeout tests).
+    pub download_delay: Option<Duration>,
+    /// Optional delay before /upload sends response (for timeout tests).
+    pub upload_delay: Option<Duration>,
+    /// If Some(n), /download streams only n bytes then closes the connection
+    /// mid-stream (for truncation tests). Content-Length still reflects the
+    /// full requested size so the client detects the premature EOF.
+    pub download_truncate_at: Option<u64>,
 }
 
 impl Default for MockOptions {
@@ -51,6 +59,9 @@ impl Default for MockOptions {
             ping_delay: None,
             download_status: StatusCode::OK,
             upload_status: StatusCode::OK,
+            download_delay: None,
+            upload_delay: None,
+            download_truncate_at: None,
         }
     }
 }
@@ -62,8 +73,11 @@ struct AppState {
     ping_delay: Option<Duration>,
     download_counter: Arc<AtomicU64>,
     download_status: StatusCode,
+    download_delay: Option<Duration>,
+    download_truncate_at: Option<u64>,
     upload_counter: Arc<AtomicU64>,
     upload_status: StatusCode,
+    upload_delay: Option<Duration>,
 }
 
 pub struct MockServer {
@@ -93,8 +107,11 @@ impl MockServer {
             ping_delay: opts.ping_delay,
             download_counter: download_counter.clone(),
             download_status: opts.download_status,
+            download_delay: opts.download_delay,
+            download_truncate_at: opts.download_truncate_at,
             upload_counter: upload_counter.clone(),
             upload_status: opts.upload_status,
+            upload_delay: opts.upload_delay,
         };
 
         // Allow bodies up to 64MB so 10MB upload tests (DEFAULT_UPLOAD_BYTES_PER_REQUEST)
@@ -188,14 +205,23 @@ async fn download(State(state): State<AppState>, Query(q): Query<DownloadQuery>)
             .unwrap();
     }
 
+    // Delay before headers (simulates stalled server for timeout tests).
+    if let Some(delay) = state.download_delay {
+        tokio::time::sleep(delay).await;
+    }
+
     let n = q
         .bytes
         .unwrap_or(DOWNLOAD_DEFAULT_BYTES)
         .min(DOWNLOAD_MAX_BYTES);
 
+    // For truncation tests: only stream this many bytes, but advertise
+    // Content-Length = n so the client detects the premature EOF.
+    let actual_send = state.download_truncate_at.map(|t| t.min(n)).unwrap_or(n);
+
     let chunk: Bytes = Bytes::from(vec![0u8; CHUNK_BYTES]);
-    let full_chunks = n / CHUNK_BYTES as u64;
-    let tail = (n % CHUNK_BYTES as u64) as usize;
+    let full_chunks = actual_send / CHUNK_BYTES as u64;
+    let tail = (actual_send % CHUNK_BYTES as u64) as usize;
 
     let chunks = stream::iter(
         std::iter::repeat_n(chunk.clone(), full_chunks as usize)
@@ -222,6 +248,11 @@ struct UploadResponse {
 
 async fn upload(State(state): State<AppState>, body: Bytes) -> Response {
     state.upload_counter.fetch_add(1, Ordering::Relaxed);
+    // Delay before response (simulates stalled server for timeout tests).
+    // Applied before status check so counter is accurate regardless of delay.
+    if let Some(delay) = state.upload_delay {
+        tokio::time::sleep(delay).await;
+    }
     if !state.upload_status.is_success() {
         return Response::builder()
             .status(state.upload_status)

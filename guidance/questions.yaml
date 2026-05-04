@@ -103,7 +103,8 @@ questions:
     raised_by: SPEC-010
     raised_at: 2026-05-02
     assigned_to: null
-    blocks: SPEC-013
+    deferred_to: STAGE-004
+    deferral_rationale: "SPEC-013 scope is failure modes (timeout/reset/malformed), not perf-multiplexing investigation; SPEC-013 (STAGE-002) closes without resolving this question; STAGE-004 perf work owns it. The SPEC-013 download-deadline test provides a regression guard: if any download phase stalls indefinitely, CI fails."
     notes: |
       SPEC-010 Frame item (A). MockServer tests use HTTP/1.1 (separate
       connections per request) so the stall scenario is not exercised.

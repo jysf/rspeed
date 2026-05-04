@@ -4,7 +4,7 @@ use chrono::Utc;
 use futures::StreamExt;
 use tokio::sync::watch;
 
-use crate::backend::{Backend, DownloadOpts, UploadOpts};
+use crate::backend::{Backend, BackendError, DownloadOpts, UploadOpts};
 use crate::config::Config;
 use crate::error::TestError;
 use crate::metrics::MetricsAccumulator;
@@ -15,6 +15,8 @@ pub const DEFAULT_DOWNLOAD_BYTES_PER_REQUEST: u64 = 1_000_000_000;
 pub const DEFAULT_UPLOAD_BYTES_PER_REQUEST: u64 = 10 * 1024 * 1024;
 pub const DEFAULT_SNAPSHOT_INTERVAL: Duration = Duration::from_millis(100);
 pub const DEFAULT_WARMUP: Duration = Duration::from_secs(2); // DEC-005
+pub const DEFAULT_DOWNLOAD_DEADLINE: Duration = Duration::from_secs(60);
+pub const DEFAULT_UPLOAD_DEADLINE: Duration = Duration::from_secs(60);
 
 pub struct TestSession {
     backend: Box<dyn Backend + Send + Sync>,
@@ -30,6 +32,8 @@ pub struct TestSession {
     /// to the `DEFAULT_*` constants.
     snapshot_interval: Duration,
     warmup: Duration,
+    download_deadline: Duration,
+    upload_deadline: Duration,
 }
 
 impl TestSession {
@@ -53,7 +57,22 @@ impl TestSession {
             snapshot_tx,
             snapshot_interval,
             warmup,
+            download_deadline: DEFAULT_DOWNLOAD_DEADLINE,
+            upload_deadline: DEFAULT_UPLOAD_DEADLINE,
         }
+    }
+
+    /// Override connection-establishment deadlines for tests and bench tools.
+    /// Production callers use `new()` / `with_intervals()` to get the
+    /// `DEFAULT_*` constants. Chainable after `with_intervals`.
+    pub fn with_deadlines(
+        mut self,
+        download_deadline: Duration,
+        upload_deadline: Duration,
+    ) -> Self {
+        self.download_deadline = download_deadline;
+        self.upload_deadline = upload_deadline;
+        self
     }
 
     pub fn snapshot_rx(&self) -> watch::Receiver<Snapshot> {
@@ -111,11 +130,13 @@ impl TestSession {
 
         let opts = DownloadOpts::new(DEFAULT_DOWNLOAD_BYTES_PER_REQUEST, self.config.connections);
         let result = async {
-            let mut stream = self
-                .backend
-                .download(&opts)
-                .await
-                .map_err(TestError::Download)?;
+            let mut stream =
+                tokio::time::timeout(self.download_deadline, self.backend.download(&opts))
+                    .await
+                    .map_err(|_| {
+                        TestError::Download(BackendError::Timeout(self.download_deadline))
+                    })?
+                    .map_err(TestError::Download)?;
 
             let phase_start = Instant::now();
             let duration = Duration::from_secs(self.config.duration_secs as u64);
@@ -161,10 +182,9 @@ impl TestSession {
             let phase_start = Instant::now();
             let duration = Duration::from_secs(self.config.duration_secs as u64);
             while phase_start.elapsed() < duration {
-                let r = self
-                    .backend
-                    .upload(&opts)
+                let r = tokio::time::timeout(self.upload_deadline, self.backend.upload(&opts))
                     .await
+                    .map_err(|_| TestError::Upload(BackendError::Timeout(self.upload_deadline)))?
                     .map_err(TestError::Upload)?;
                 acc.record_bytes(r.bytes_sent);
             }
