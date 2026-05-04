@@ -21,8 +21,9 @@ pub use config::{ColorWhen, Config, Format};
 pub use error::TestError;
 pub use metrics::MetricsAccumulator;
 pub use orchestrator::{
-    DEFAULT_DOWNLOAD_BYTES_PER_REQUEST, DEFAULT_LATENCY_SAMPLES, DEFAULT_SNAPSHOT_INTERVAL,
-    DEFAULT_UPLOAD_BYTES_PER_REQUEST, DEFAULT_WARMUP, TestSession,
+    DEFAULT_DOWNLOAD_BYTES_PER_REQUEST, DEFAULT_DOWNLOAD_DEADLINE, DEFAULT_LATENCY_SAMPLES,
+    DEFAULT_SNAPSHOT_INTERVAL, DEFAULT_UPLOAD_BYTES_PER_REQUEST, DEFAULT_UPLOAD_DEADLINE,
+    DEFAULT_WARMUP, TestSession,
 };
 pub use result::{
     LatencyResult, Phase, Snapshot, TestResult, ThroughputResult, compute_latency_result,

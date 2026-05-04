@@ -2,7 +2,7 @@
 task:
   id: SPEC-013
   type: story
-  cycle: design
+  cycle: verify
   blocked: false
   priority: high
   complexity: S
@@ -33,9 +33,9 @@ cost:
       date: 2026-05-03
       agent: claude-sonnet-4-6
       interface: claude-code
-      tokens_input: null
-      tokens_output: null
-      estimated_usd: null
+      tokens_input: 3617480
+      tokens_output: 120878
+      estimated_usd: 5.3045
       note: "Spec authoring + Frame critique in single Sonnet session"
     - cycle: build
       date: null
@@ -64,7 +64,7 @@ cost:
   totals:
     tokens_total: null
     estimated_usd: null
-    session_count: 1
+    session_count: 4
 ---
 
 # SPEC-013: Failure mode tests (timeout, reset, malformed)
@@ -1040,14 +1040,21 @@ Total: ~2h50m. Fits comfortably in the 3hr estimate. No split needed.
 
 ## Build Completion
 
-*To be filled in during the build cycle.*
-
 - **Branch:** `feat/spec-013-failure-modes`
-- **PR (if applicable):** [TBD]
-- **All acceptance criteria met?** [TBD]
-- **Test count:** [TBD]
-- **New decisions emitted:** [TBD]
-- **Deviations from spec:** [TBD]
+- **PR (if applicable):** [TBD — opened at verify]
+- **All acceptance criteria met?** Yes (AC-1 through AC-13)
+- **Test count:** 6 new tests in `tests/failure_modes.rs`; 78 prior tests unaffected
+- **New decisions emitted:** None — all build choices aligned with existing DEC-001/002/003
+- **Deviations from spec:** One intentional:
+  - The spec's "Files to modify" listed `src/backend/throughput.rs` for constants and
+    timeout wrapping. The Implementation Context's DEC-003 and the spec's code examples
+    both place these in `src/orchestrator.rs` instead. The orchestrator approach was
+    followed: constants in `orchestrator.rs`, timeouts wrap `self.backend.download/upload()`
+    at the orchestrator level. This satisfies architect refinement #2 (per-phase not
+    per-connection) because `backend.download()` internally calls `try_join_all` on all N
+    connections. `throughput.rs` was not modified.
+  - `guidance/questions.yaml` was already updated during design (deferred_to +
+    deferral_rationale present, blocks: SPEC-013 absent). No change needed at build.
 
 ---
 
