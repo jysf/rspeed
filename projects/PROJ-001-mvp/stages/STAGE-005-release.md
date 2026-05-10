@@ -97,6 +97,7 @@ Roughly 10 hours; this is mostly mechanical setup.
 ## Spec Backlog
 
 - [x] SPEC-014 (shipped 2026-05-09) — Cloudflare download 403 fix (bytes-per-request limit + download loop)
+- [~] SPEC-015 (in design) — NDT7 backend (M-Lab); replaces Cloudflare as default
 - [ ] SPEC-027 (not yet written) — cargo-dist setup and release.yml
 - [ ] SPEC-028 (not yet written) — Homebrew tap repo + auto-update
 - [ ] SPEC-029 (not yet written) — crates.io publish workflow
