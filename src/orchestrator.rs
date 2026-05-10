@@ -11,7 +11,9 @@ use crate::metrics::MetricsAccumulator;
 use crate::result::{Phase, Snapshot, TestResult, ThroughputResult, compute_latency_result};
 
 pub const DEFAULT_LATENCY_SAMPLES: usize = 10;
-pub const DEFAULT_DOWNLOAD_BYTES_PER_REQUEST: u64 = 1_000_000_000;
+// Cloudflare's /__down returns 403 for bytes >= 100_000_000; 25 MB keeps
+// us well within the limit and allows multiple rounds per test duration.
+pub const DEFAULT_DOWNLOAD_BYTES_PER_REQUEST: u64 = 25_000_000;
 pub const DEFAULT_UPLOAD_BYTES_PER_REQUEST: u64 = 10 * 1024 * 1024;
 pub const DEFAULT_SNAPSHOT_INTERVAL: Duration = Duration::from_millis(100);
 pub const DEFAULT_WARMUP: Duration = Duration::from_secs(2); // DEC-005
@@ -130,28 +132,34 @@ impl TestSession {
 
         let opts = DownloadOpts::new(DEFAULT_DOWNLOAD_BYTES_PER_REQUEST, self.config.connections);
         let result = async {
-            let mut stream =
-                tokio::time::timeout(self.download_deadline, self.backend.download(&opts))
-                    .await
-                    .map_err(|_| {
-                        TestError::Download(BackendError::Timeout(self.download_deadline))
-                    })?
-                    .map_err(TestError::Download)?;
-
             let phase_start = Instant::now();
             let duration = Duration::from_secs(self.config.duration_secs as u64);
-            loop {
-                let Some(remaining) = duration.checked_sub(phase_start.elapsed()) else {
-                    break;
-                };
-                match tokio::time::timeout(remaining, stream.next()).await {
-                    Ok(Some(Ok(chunk))) => acc.record_bytes(chunk.len() as u64),
-                    Ok(Some(Err(e))) => return Err(TestError::Download(e)),
-                    Ok(None) => break, // server closed early
-                    Err(_) => break,   // duration reached
+
+            // Loop rounds until the test duration expires. Each round opens
+            // a fresh set of parallel connections; the server closes the
+            // stream after sending bytes_per_request bytes (Cloudflare caps
+            // individual requests at < 100 MB). Mirrors the upload-phase loop.
+            while phase_start.elapsed() < duration {
+                let mut stream =
+                    tokio::time::timeout(self.download_deadline, self.backend.download(&opts))
+                        .await
+                        .map_err(|_| {
+                            TestError::Download(BackendError::Timeout(self.download_deadline))
+                        })?
+                        .map_err(TestError::Download)?;
+
+                loop {
+                    let Some(remaining) = duration.checked_sub(phase_start.elapsed()) else {
+                        break;
+                    };
+                    match tokio::time::timeout(remaining, stream.next()).await {
+                        Ok(Some(Ok(chunk))) => acc.record_bytes(chunk.len() as u64),
+                        Ok(Some(Err(e))) => return Err(TestError::Download(e)),
+                        Ok(None) => break, // server closed stream — start next round
+                        Err(_) => break,   // duration reached
+                    }
                 }
             }
-            drop(stream);
 
             let measurement_secs = measurement_window(phase_start.elapsed(), self.warmup);
             let throughput = acc.finish(

@@ -16,7 +16,6 @@ pub async fn download_one(
 > {
     let response = client
         .get(url)
-        .header("Accept-Encoding", "identity")
         .send()
         .await
         .map_err(BackendError::Network)?;
@@ -40,7 +39,6 @@ pub async fn upload_one(client: &Client, url: Url, body: Bytes) -> Result<Durati
 
     let response = client
         .post(url)
-        .header("Accept-Encoding", "identity")
         .header("Content-Length", body_len.to_string())
         .body(body)
         .send()
@@ -63,6 +61,7 @@ pub async fn upload_one(client: &Client, url: Url, body: Bytes) -> Result<Durati
 pub fn build_download_url(base: &Url, bytes: u64) -> Result<Url, BackendError> {
     let mut url = base.clone();
     url.query_pairs_mut()
+        .append_pair("during", "download")
         .append_pair("bytes", &bytes.to_string());
     Ok(url)
 }

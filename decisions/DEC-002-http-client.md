@@ -94,3 +94,14 @@ what the user wants. A future `--use-proxy` flag can opt back in.
   (e.g. for explicit HTTP/2 stream-per-connection counting), we can
   switch to `hyper` directly without much pain — the `Backend` trait
   isolates the HTTP client from the rest of the code.
+- **Accept-Encoding note (SPEC-014 amendment):** The original decision
+  called for sending `Accept-Encoding: identity` on all requests to
+  prevent servers from compressing responses (which would inflate
+  reported Mbps relative to on-wire bytes). Since the `gzip` reqwest
+  feature is not enabled, reqwest sends no Accept-Encoding header by
+  default; servers therefore use identity encoding without being told.
+  The explicit header is not needed and was removed in SPEC-014.
+- **TLS fingerprinting investigation (SPEC-014 amendment):** Switching
+  to `native-tls` did not resolve Cloudflare `/__down` 403s. The root
+  cause was a bytes-per-request limit, not TLS fingerprinting. rustls
+  remains the correct TLS backend.

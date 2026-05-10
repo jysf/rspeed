@@ -16,6 +16,58 @@
 #   (b) delete the question if it was resolved without a formal decision.
 
 questions:
+  - id: cloudflare-download-403
+    question: "Why does rspeed's Cloudflare backend return HTTP 403 on download requests?"
+    priority: critical
+    status: answered
+    raised_by: claude-sonnet-4-6
+    raised_at: 2026-05-09
+    answered_at: 2026-05-09
+    assigned_to: null
+    blocks: null
+    notes: |
+      Root cause: DEFAULT_DOWNLOAD_BYTES_PER_REQUEST = 1_000_000_000 (1 GB)
+      exceeded Cloudflare's per-request limit. Confirmed via curl:
+        bytes=99_999_999 → 200 OK
+        bytes=100_000_000 → 403 Forbidden
+      Five other hypotheses were tested and ruled out: missing UA header,
+      Accept-Encoding: identity, missing `during=download` query param,
+      TLS fingerprinting (rustls JA3 — switching to native-tls had no effect),
+      HTTP version (forcing HTTP/1.1 had no effect).
+      Fix: reduced DEFAULT_DOWNLOAD_BYTES_PER_REQUEST to 25_000_000 (25 MB)
+      and added download-phase looping to handle fast links where 25 MB drains
+      before the test duration expires. See SPEC-014.
+
+  - id: cloudflare-upload-mbps-percentiles-zero
+    question: "Why does the Cloudflare upload result show mbps_p50=0.0 and mbps_p95=0.0 when mbps is non-zero?"
+    priority: medium
+    status: open
+    raised_by: claude-sonnet-4-6
+    raised_at: 2026-05-09
+    assigned_to: null
+    blocks: null
+    notes: |
+      Observed in live SPEC-014 output: upload.mbps=31.9 but upload.mbps_p50=0.0
+      and upload.mbps_p95=0.0. The upload phase loops in short bursts (10 MB
+      per call); the MetricsAccumulator may not be accumulating per-interval
+      snapshots in the upload phase the same way as download. Pre-existing;
+      not introduced by SPEC-014. Investigate in a separate spec.
+
+  - id: cloudflare-ping-404
+    question: "Should rspeed add a /guidance/questions.yaml note about Cloudflare __ping returning 404?"
+    priority: low
+    status: answered
+    raised_by: claude-sonnet-4-6
+    raised_at: 2026-05-09
+    answered_at: 2026-05-09
+    assigned_to: null
+    blocks: null
+    notes: |
+      Cloudflare's /__ping returns 404 on the current infra. The latency probe
+      automatically falls back to TCP connect, which works correctly. The live
+      test output shows latency.method = "tcp_connect" and samples > 0, so
+      the fallback is working. No code change needed; documented in DEC-003.
+
   - id: dec-007-cargo-dist-freshness
     question: "Verify cargo-dist is still maintained and suitable for our matrix, or commit to the hand-rolled fallback, before SPEC-027 leaves Frame."
     priority: medium
