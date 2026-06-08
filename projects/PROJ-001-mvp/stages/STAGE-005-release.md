@@ -96,13 +96,23 @@ Roughly 10 hours; this is mostly mechanical setup.
 
 ## Spec Backlog
 
+- [x] SPEC-014 (shipped 2026-05-09) — Cloudflare download 403 fix (bytes-per-request limit + download loop)
+- [~] SPEC-015 (in design) — NDT7 backend (M-Lab); replaces Cloudflare as default
 - [ ] SPEC-027 (not yet written) — cargo-dist setup and release.yml
 - [ ] SPEC-028 (not yet written) — Homebrew tap repo + auto-update
 - [ ] SPEC-029 (not yet written) — crates.io publish workflow
 - [ ] SPEC-030 (not yet written) — README rewrite with screenshots/asciicast
 - [ ] SPEC-031 (not yet written) — CHANGELOG, LICENSE, contributor docs
 
-**Count:** 0 shipped / 0 active / 5 pending
+**Count:** 1 shipped / 0 active / 5 pending
+
+## Cloudflare backend status
+
+**Confirmed working** (SPEC-014, 2026-05-09). Live test against
+`speed.cloudflare.com` produces non-zero download and upload throughput.
+Example output: download ~228 Mbps, upload ~32 Mbps on a typical
+residential connection. Latency uses TCP connect fallback (/__ping
+returns 404; see DEC-003).
 
 ## Out-of-band setup required (one-time, before specs)
 

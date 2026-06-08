@@ -69,9 +69,16 @@ pub trait Backend: Send + Sync {
 Provide two impls:
 
 - `CloudflareBackend` (`src/backend/cloudflare.rs`): hardcoded base URL
-  `https://speed.cloudflare.com`. The endpoint shape (`/__down?bytes=N`,
-  `/__up`) is the production contract — if Cloudflare changes it we
-  ship a fixed minor version.
+  `https://speed.cloudflare.com`. The endpoint shape is the production
+  contract — if Cloudflare changes it we ship a fixed minor version.
+  Confirmed endpoint details (SPEC-014):
+  - Download: `GET /__down?during=download&bytes=N` — the `during` param
+    is required (observed in browser DevTools). `bytes` must be
+    < 100,000,000; requests for ≥ 100 MB return 403. Use 25 MB per
+    connection for reliable multi-round tests.
+  - Upload: `POST /__up?measId=<bigint>` — `measId` format TBD.
+  - Latency: `GET /__ping` — returns 404 on current Cloudflare infra;
+    the latency probe falls back to TCP connect automatically.
 
 - `GenericHttpBackend` (`src/backend/generic.rs`): accepts any base URL
   via the `--server` flag. Implements a documented protocol (see the

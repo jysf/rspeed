@@ -21,7 +21,10 @@ pub struct CloudflareBackend {
 
 impl CloudflareBackend {
     pub fn new() -> Result<Self, BackendError> {
-        let client = reqwest::Client::builder().no_proxy().build()?;
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .user_agent(concat!("rspeed/", env!("CARGO_PKG_VERSION")))
+            .build()?;
         let ping_url = "https://speed.cloudflare.com/__ping"
             .parse()
             .map_err(|e: url::ParseError| BackendError::Protocol(e.to_string()))?;

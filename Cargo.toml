@@ -35,6 +35,11 @@ insta       = "1"
 axum        = "0.8"
 tokio       = { version = "1", features = ["test-util"] }   # paused-clock helpers; dev-only
 
+[features]
+# Gate live-network tests behind this feature so CI runs don't hit Cloudflare.
+# Run with: cargo test --features live
+live = []
+
 [lints.rust]
 unsafe_code = "forbid"
 
